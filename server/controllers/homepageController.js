@@ -60,6 +60,8 @@ const updateHomepage = async (req, res) => {
     }
 };
 
+
+//delete homepage
 const deleteElement = async (req, res) => {
     try {
         const del = await Homepage.findByIdAndDelete(req.params.id);
