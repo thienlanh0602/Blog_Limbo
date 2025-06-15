@@ -5,3 +5,26 @@ export const getHomepageAdmin = async () => {
     const res = await axios.get(`${API_URL}/api/homepage/`);
     return res.data;
 }
+
+export const updateHomepageAdmin = async (id, formData) => {
+    try {
+        const res = await axios.put(`${API_URL}/api/homepage/${id}`, formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
+        )
+        return res.data;
+    } catch (error) {
+        console.error('Lỗi khi cập nhật homepage:', error);
+        throw error;
+    }
+}
+
+export const deleteHomepageAdmin = async (id) => {
+
+    const res = await axios.delete(`${API_URL}/api/homepage/${id}`)
+    return res.data;
+
+}

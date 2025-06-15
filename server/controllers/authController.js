@@ -33,7 +33,7 @@ const login = async (req, res) => {
             return res.status(401).json({ message: 'Sai tài khoản hoặc mật khẩu!!' });
         }
 
-        const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '30d' });
+        const token = jwt.sign({ id: user._id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1y' });
 
         res.json({ token });
     } catch (err) {

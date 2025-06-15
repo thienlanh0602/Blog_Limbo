@@ -8,7 +8,7 @@ const authRouter = require('./routers/authRouter')
 const homepageRouter = require('./routers/homepageRouter');
 
 
-dotenv.config();
+dotenv.config({path: __dirname + '/.env'});
 
 const app = express();
 const port = process.env.PORT || 5000;

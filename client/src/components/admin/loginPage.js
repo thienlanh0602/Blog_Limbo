@@ -23,7 +23,6 @@ function loginPage() {
                 { headers: { 'Content-Type': 'application/json' } });
             console.log("Đăng nhập thành công ✅");
             localStorage.setItem('token', response.data.token);
-            
             navigate('/admin');
         }
    
