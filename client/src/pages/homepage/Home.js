@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Container, Typography, Skeleton, Box } from '@mui/material';
-import { getHomepage } from '../api/homepageAPI'
+import { getHomepage } from '../../api/homepageAPI'
+import { StyleTypography, StyleSkeleton_1, StyleSkeleton_2 } from '../../components/homepage/home';
 
 
 
@@ -19,36 +20,19 @@ function Home() {
     fetchData();
   }, []);
 
-  // if (!data) {
-  //   return (
-  //     <Container sx={{ mt: 4 }}>
-  //       <Skeleton variant="text" width={300} height={40} />
-  //       <Skeleton variant="rectangular" width={600} height={300} sx={{ mt: 2 }} />
-  //     </Container>
-  //   );
-  // }
-
   return (
-
-    // <Container>
-    //   <Typography variant="h4" gutterBottom>{data.title}</Typography>
-    //   <Box
-    //     component="img"
-    //     src={`http://localhost:5000${data.image}`}
-    //     alt="Homepage"
-    //     sx={{ width: '100%', maxWidth: 600, borderRadius: 2 }}
-    //   />
-    // </Container>
     <Container>
       {data.length === 0 ? (
         <Container sx={{ mt: 4 }}>
-          <Skeleton variant="text" width={300} height={40} />
-          <Skeleton variant="rectangular" width={600} height={300} sx={{ mt: 2 }} />
+          <StyleSkeleton_1 />
+          <StyleSkeleton_2 />
         </Container>
       ) : (
         data.map((item, index) => (
           <Box key={index} sx={{ mb: 4 }}>
-            <Typography variant="h5" gutterBottom>{item.title}</Typography>
+            <StyleTypography>{item.title}</StyleTypography>
+            <StyleTypography>{item.title_2}</StyleTypography>
+
             {item.image && (
               <Box
                 component="img"

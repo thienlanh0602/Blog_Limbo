@@ -8,7 +8,7 @@ function Layout() {
 
     return (
 
-        <Box>
+        <>
             <Header />
 
             <Box sx={{
@@ -23,7 +23,7 @@ function Layout() {
                 <Outlet />
             </Box>
 
-        </Box>
+        </>
 
     );
 

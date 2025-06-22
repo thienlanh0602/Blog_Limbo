@@ -14,7 +14,7 @@ const getHomePage = async (req, res) => {
 //tao thuoc tinh homepage  
 const createHomepage = async (req, res, next) => {
     try {
-        const { title } = req.body;
+        const { title, title_2 } = req.body;
         // test
         // console.log('req.body:', req.body);       // kiểm tra dữ liệu title
         // console.log('req.file:', req.file);
@@ -26,10 +26,10 @@ const createHomepage = async (req, res, next) => {
         const imagePath = req.file ? `/uploads/${req.file.filename}` : '';
         // console.log("req.file:", req.file);
 
-        const homepage = new Homepage({ title, image: imagePath });
+        const homepage = new Homepage({ title, title_2, image: imagePath });
         await homepage.save();
 
-        return res.status(201).json(homepage); // ✅ Đúng là `res`, không phải `req`
+        return res.status(201).json(homepage);
     } catch (error) {
         console.log(error);
         return res.status(500).json({ error: 'Không thể tạo homepage ❌' });
@@ -40,11 +40,12 @@ const createHomepage = async (req, res, next) => {
 //update homepage
 const updateHomepage = async (req, res) => {
     try {
-        const { title } = req.body;
+        const { title, title_2 } = req.body;
         const imagePath = req.file ? `/uploads/${req.file.filename}` : undefined;
 
         const updateData = {};
         if (title) updateData.title = title;
+        if (title_2) updateData.title_2 = title_2;
         if (imagePath) updateData.image = imagePath;
 
 

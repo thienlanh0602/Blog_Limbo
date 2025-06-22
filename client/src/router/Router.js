@@ -1,31 +1,28 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-import Home from './pages/Home';
+import Home from '../pages/homepage/Home';
 
-import Color from './pages/Color';
-import DIY from './pages/DIY';
-import Image from './pages/Image';
-import Music from './pages/Music';
-import Resume from './pages/Resume';
+import Color from '../pages/color/Color';
+import DIY from '../pages/diy/DIY';
+import Image from '../pages/imagePage/Image';
+import Music from '../pages/music/Music';
+import Resume from '../pages/resume/Resume';
 
-import AdminLayout from './components/layout/admin/adminLayout';
-import HomepageAdmin from './components/admin/HomepageAdmin';
-import ResumeAdmin from './components/admin/ResumeAdmin';
-import ColorAdmin from './components/admin/ColorAdmin';
-import MusicAdmin from './components/admin/MusicAdmin';
-import DIYAdmin from './components/admin/DIY_Admin';
-import ImageAdmin from './components/admin/ImageAdmin';
+import AdminLayout from '../layout/admin/adminLayout';
+import HomepageAdmin from '../pages/admin/homepageAdmin/HomepageAdmin';
+import ResumeAdmin from '../pages/admin/resumeAdmin/ResumeAdmin';
+import ColorAdmin from '../pages/admin/colorAdmin/ColorAdmin';
+import MusicAdmin from '../pages/admin/musicAdmin/MusicAdmin';
+import DIYAdmin from '../pages/admin/diyAdmin/DIY_Admin';
+import ImageAdmin from '../pages/admin/imageAdmin/ImageAdmin';
 
+import '../router/App.css';
+import Layout from '../layout/Layout';
+import LoginPage from '../pages/admin/loginAdmin/loginPage';
+import ProtectedRoute from '../layout/ProtectedRoute/protectedAdmin';
+import PublicRoute from '../layout/ProtectedRoute/publicAdmin';
 
-
-import './App.css';
-import Layout from './components/layout/Layout';
-import LoginPage from './components/admin/loginPage';
-import ProtectedRoute from './components/protectedRouter/protectedAdmin';
-import PublicRoute from './components/protectedRouter/publicAdmin';
-
-function App() {
+function Routers() {
   return (
     <Router>
 
@@ -62,11 +59,10 @@ function App() {
           </PublicRoute>
         } />
 
-
       </Routes>
 
     </Router>
   );
 }
 
-export default App;
+export default Router;

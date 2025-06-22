@@ -3,7 +3,11 @@ const mongoose = require('mongoose');
 const homepageSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: true,
+    required: false,
+  },
+  title_2: {
+    type: String,
+    required: false,
   },
   image: {
     type: String,
