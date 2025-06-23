@@ -1,6 +1,5 @@
-import React from "react";
-import { AppBar, Button, Toolbar, Typography, Box } from '@mui/material'
-import { Link, Outlet } from "react-router-dom";
+import {  Box } from '@mui/material'
+import {  Outlet } from "react-router-dom";
 import Header from "./Header";
 
 

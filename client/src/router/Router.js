@@ -19,8 +19,8 @@ import ImageAdmin from '../pages/admin/imageAdmin/ImageAdmin';
 import '../router/App.css';
 import Layout from '../layout/Layout';
 import LoginPage from '../pages/admin/loginAdmin/loginPage';
-import ProtectedRoute from '../layout/ProtectedRoute/protectedAdmin';
-import PublicRoute from '../layout/ProtectedRoute/publicAdmin';
+import ProtectedRoute from '../router/ProtectedRoute/protectedAdmin';
+import PublicRoute from '../router/ProtectedRoute/publicAdmin';
 
 function Routers() {
   return (
@@ -65,4 +65,4 @@ function Routers() {
   );
 }
 
-export default Router;
+export default Routers;

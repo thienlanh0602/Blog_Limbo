@@ -2,6 +2,7 @@ import React from "react";
 import { AppBar, Button, Toolbar, Box, Typography } from '@mui/material'
 import { Link } from "react-router-dom";
 import Logo from "../assets/image_3.png"
+import { StyleAppBar } from "../components/header/header";
 
 function Header() {
 
@@ -11,25 +12,19 @@ function Header() {
         { label: 'Color', path: '/color' },
         { label: 'Image', path: '/image' },
         { label: 'DIY', path: '/diy' },
-    ]
+    ];
+
     return (
 
 
         // Bọc header bằng appbar và tùy chỉnh
-        <AppBar position="static"
-            elevation={0}
-            sx={{
-                backgroundColor: 'transparent',
-                borderBottom: '1px solid #e0e0e0', // màu xám nhẹ như gạch
-                boxShadow: 'none',
-                color: '#000',
-            }}>
+        <StyleAppBar>
             <Toolbar >
                 {/* Logo */}
                 <Box
                     component={Link}
                     to="/"
-                    
+
                     sx={{
                         display: 'flex',
                         alignItems: 'center',
@@ -55,7 +50,7 @@ function Header() {
                     ))
                 }
             </Toolbar>
-        </AppBar>
+        </StyleAppBar>
     );
 
 }

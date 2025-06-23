@@ -260,16 +260,19 @@ const HomepageAdmin = () => {
                             <Card>
                                 {/* này là của inert */}
                                 {/* <div ref={appRef}> */}
+
                                 <CardContent >
                                     <Typography display={'block'} variant="h7" gutterBottom>{item.title}</Typography>
                                     <Typography display={'block'} variant="h7" gutterBottom>{item.title_2}</Typography>
-
                                 </CardContent>
 
-                                <CardMedia component="img"
-                                    src={`http://localhost:5000${item.image}`}
-                                    sx={{ width: '10%', maxWidth: 600, borderRadius: 2 }}
-                                />
+                                {/* bỏ thuộc tính image nếu nó mảng đó không có image */}
+                                {item.image && (
+                                    <CardMedia component="img"
+                                        src={`http://localhost:5000${item.image}`}
+                                        sx={{ width: '10%', maxWidth: 600, borderRadius: 2 }}
+                                    />
+                                )}
 
                                 {/* e ở đây là truyền event vào để thêm e vào menu */}
                                 <IconButton onClick={(e) => handleClickButton(e, item)}>
