@@ -1,8 +1,8 @@
 # Limbo
 
 .
-├── client/ # React frontend /n
-│ ├── src/ /n
+├── client/ # React frontend #
+│ ├── src/ #
 │ │ ├── api/ # API calls (CRUD)
 │ │ ├── components/ # Shared UI components (Drawer, Navbar, etc.)
 │ │ ├── layout/ # Layout: Header, Footer, Sidebar
