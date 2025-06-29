@@ -1,29 +1,18 @@
-import { Typography, Skeleton } from '@mui/material';
-
-
-//text title
-const isDesktopTitle = 150;
-const isTabletTitle = 100;
-const isMobileTitle = 50;
-
-//text context
-const isDesktopContext = 30;
-const isTabletContext = 20;
-const isMobileContext = 10;
-
+import { Typography, Skeleton, Button, Box } from '@mui/material';
 
 //styletitle
-export const StyleTypography_1 = ({ children, variant = 'h1', gutterBottom = false, sx = {}, ...props }) => {
+export const StyleTypography_1 = ({ children, fontStyle = 'bold', gutterBottom = false, sx = {}, ...props }) => {
     return (
         <Typography gutterBottom={gutterBottom}
+            fontStyle={fontStyle}
+            fontWeight={800}
+            textTransform='uppercase'
+            letterSpacing={-11}
             sx={{
-                fontSize: {
-                    xs: isMobileTitle,    // điện thoại
-                    sm: isTabletTitle,   // tablet
-                    md: isDesktopTitle,// desktop
+                fontSize: 190
+            }}
 
-                },
-            }} {...props} >
+            {...props} >
 
             {children}
         </Typography>
@@ -32,15 +21,16 @@ export const StyleTypography_1 = ({ children, variant = 'h1', gutterBottom = fal
 
 export const StyleTypography_2 = ({ children, gutterBottom = false, sx = {}, ...props }) => {
     return (
-        <Typography gutterBottom={gutterBottom}
+       <Typography gutterBottom={gutterBottom}
+            
+            fontWeight={200}
+            
+            
             sx={{
-                fontSize: {
-                    xs: isMobileContext,    // điện thoại
-                    sm: isTabletContext,   // tablet
-                    md: isDesktopContext,// desktop
+                fontSize: 22
+            }}
 
-                },
-            }} {...props} >
+            {...props} >
 
             {children}
         </Typography>
@@ -69,6 +59,34 @@ export const StyleSkeleton_2 = ({ variant = 'rectangular', width = 600, height =
             {...props}
 
         />
+    )
+}
+
+export const ButtonHomeImage = ({ children, maxwith = 'lg', sx = {}, ...props }) => {
+    return (
+        <Button
+            sx={() => ({
+                backgroundColor: '#4efcd3',
+                border: '2px solid black',
+                borderRadius: 10,
+                minWidth: 140,
+                minHeight: 70,
+                color: 'black',
+
+            })} {...props}>
+            {children}
+        </Button>
+    )
+}
+export const BoxImageHome = ({ maxwith = 'lg', sx = {}, ...props }) => {
+    return (
+        <Box
+            sx={() => ({
+                width: 30,
+                height:30,
+            })} {...props} />
+
+
     )
 }
 

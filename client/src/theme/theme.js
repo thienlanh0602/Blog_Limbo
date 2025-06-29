@@ -5,6 +5,38 @@ const theme = createTheme({
   typography: {
     fontFamily: 'Kanit, sans-serif',
   },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          padding: 0,
+          minWidth: 'auto',
+          backgroundColor: 'transparent',
+          boxShadow: 'none',
+          textTransform: 'none',
+          '&:hover': {
+            backgroundColor: 'transparent',
+            boxShadow: 'none',
+          },
+          '&:active': {
+            backgroundColor: 'transparent',
+            boxShadow: 'none',
+          },
+          '&:focus': {
+            backgroundColor: 'transparent',
+            boxShadow: 'none',
+          },
+        },
+      },
+      defaultProps: {
+        disableRipple: true,
+      },
+    },
+  },
+
+
+
 });
 
 export default theme;
+

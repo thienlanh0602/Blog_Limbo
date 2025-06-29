@@ -42,24 +42,84 @@
 
 @font-face {
   font-family: 'Kanit';
-  src: url(../assets/font/Kanit-Medium.ttf)format('truetype');
-  font-weight: normal;
+  src: url('../assets/font/Kanit-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+/* Extra Light */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-ExtraLight.ttf') format('truetype');
+  font-weight: 200;
   font-style: normal;
 }
 
-/* @font-face {
-  font-family: 'Kanit';
-  src: url(../assets/font/Kanit-Italic.ttf)format('truetype');
-  font-weight: normal;
-  font-style: inherit;
-}
 
+/* Light */
 @font-face {
   font-family: 'Kanit';
-  src: url(../assets/font/Kanit-Bold.ttf)format('truetype');
-  font-weight: normal;
-  font-style: bold;
-} */
+  src: url('../assets/font/Kanit-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+
+/* Medium */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+/* SemiBold */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Bold */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* ExtraBold */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+}
+
+/* Italic */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* SemiBold Italic */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-SemiBoldItalic.ttf') format('truetype');
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* Bold Italic */
+@font-face {
+  font-family: 'Kanit';
+  src: url('../assets/font/Kanit-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+}
+
+
 
 div:focus {
   outline: none;
