@@ -14,19 +14,12 @@ const getHomePage = async (req, res) => {
 //tao thuoc tinh homepage  
 const createHomepage = async (req, res, next) => {
     try {
-        const { title, title_2 } = req.body;
-        // test
-        // console.log('req.body:', req.body);       // kiểm tra dữ liệu title
-        // console.log('req.file:', req.file);
-        // if (!req.file) {
-        //     return res.status(400).json({ error: 'Ảnh là bắt buộc' });
-        //     next();
-        // }
-       
+        const { title, title_2, type } = req.body;
+
         const imagePath = req.file ? `/uploads/${req.file.filename}` : '';
         // console.log("req.file:", req.file);
 
-        const homepage = new Homepage({ title, title_2, image: imagePath });
+        const homepage = new Homepage({ title, title_2, type, image: imagePath });
         await homepage.save();
 
         return res.status(201).json(homepage);
@@ -40,14 +33,14 @@ const createHomepage = async (req, res, next) => {
 //update homepage
 const updateHomepage = async (req, res) => {
     try {
-        const { title, title_2 } = req.body;
+        const { title, title_2, delImg } = req.body;
         const imagePath = req.file ? `/uploads/${req.file.filename}` : undefined;
 
         const updateData = {};
         if (title) updateData.title = title;
         if (title_2) updateData.title_2 = title_2;
         if (imagePath) updateData.image = imagePath;
-
+        else if (delImg === true || delImg === 'true') updateData.image = '';
 
         const homePage = await Homepage.findByIdAndUpdate(req.params.id, updateData, {
             new: true,
@@ -60,7 +53,6 @@ const updateHomepage = async (req, res) => {
         res.status(500).json({ error: 'Không thể cập nhật homepage ❌' });
     }
 };
-
 
 //delete homepage
 const deleteElement = async (req, res) => {

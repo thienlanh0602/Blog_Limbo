@@ -25,7 +25,7 @@ function loginPage() {
             localStorage.setItem('token', response.data.token);
             navigate('/admin');
         }
-   
+
         catch (err) {
             setError('Sai tài khoản hoặc mật khẩu!!');
         }
@@ -55,7 +55,14 @@ function loginPage() {
                     margin="normal"
                     required
                 />
-                <Button type="submit" variant="contained" color="primary" fullWidth>Đăng nhập</Button>
+                <Button type="submit" variant="contained" fullWidth sx={{
+                    backgroundColor: '#4efcd3',
+                    border: '2px solid black',
+                    borderRadius: 10,
+                    minWidth: 100,
+                    minHeight: 50,
+                    color: 'black',
+                }}>Đăng nhập</Button>
             </form>
         </Container>
 

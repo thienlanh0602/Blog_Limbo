@@ -7,6 +7,5 @@
     "client": "npm start --prefix client",
     "server": "node server/index.js",
     "dev": "concurrently \"npm run start\" \"npm run client\""
-}     
-  
+  }
 }

@@ -3,11 +3,12 @@ import {
     Button, Dialog, TextField, Stack, Card,
     CardContent, CardMedia, DialogContent,
     DialogTitle, DialogActions, Menu, MenuItem,
-    IconButton, Snackbar
+    IconButton, Snackbar,
 } from '@mui/material';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { getHomepageAdmin, updateHomepageAdmin, deleteHomepageAdmin, createHomePageAdmin } from '../../../api/adminAPI';
+import { StyleButton, StyleTyp } from '../../../components/admin/homepage';
 
 
 const HomepageAdmin = () => {
@@ -19,7 +20,6 @@ const HomepageAdmin = () => {
             try {
                 const res = await getHomepageAdmin();
                 setAdmin(res);
-
             } catch (error) {
                 console.error(error);
             }
@@ -29,35 +29,18 @@ const HomepageAdmin = () => {
 
     //xử lý mở button chỉnh sửa
     const [open, setOpen] = useState(false);
-    // const appRef = useRef();
-
-    // //Bắt sự kiện inert
-    // useEffect(() => {
-    //     const elenment = appRef.current;
-    //     if (elenment) {
-    //         if (open) {
-    //              document.activeElement.blur();
-    //             elenment.setAttribute('inert', '');
-    //         } else {
-    //             elenment.removeAttribute('inert');
-    //         }
-    //     }  
-    // }, [open])
 
     // state dành cho tạo bài 
-    const [createPost, setCreatePost] = useState({ title: '', title_2: '', image: null });
+    const [createPost, setCreatePost] = useState({ type: '', title: '', title_2: '', image: null });
     const [openAdd, setOpenAdd] = useState(false);
     //state image review
     const [imageReviewAdd, setimageReviewAdd] = useState('');
-
 
     //lấy dữ liệu
     const handleCreatePost = (item) => {
         setCreatePost({ ...item })
         setOpenAdd(true);
     }
-
-
 
     //handle image input
     const handleInputImage = (e) => {
@@ -75,7 +58,7 @@ const HomepageAdmin = () => {
             const newpost = new FormData();
             newpost.append('title', createPost.title);
             newpost.append('title_2', createPost.title_2);
-
+            newpost.append('type', createPost.type);
             if (createPost.image) {
                 newpost.append('image', createPost.image);
             }
@@ -96,14 +79,29 @@ const HomepageAdmin = () => {
 
     }
 
-
     // state dành cho chỉnh sửa
     const [editItem, setEditItem] = useState({});
-    const [imageReview, setimageReview] = useState('');
+    const [imageReview, setimageReview] = useState(null);
+    const [delImage, setDelImage] = useState(false);
 
+    //handle del img while del img
+    const handleDelImg = () => {
+        setimageReview(null);
+        setDelImage(true);
+        setEditItem(pre => ({
+            ...pre,
+            image: '',
+        }))
+    }
     const handleEdit = (item) => {
         setEditItem({ ...item });
-        setimageReview(`http://localhost:5000${item.image}`);
+
+        // xử lý ảnh khi có và không
+        if (item.image) {
+            setimageReview(`http://localhost:5000${item.image}`);
+        } else {
+            setimageReview(null);
+        }
         setOpen(true);
     }
 
@@ -140,6 +138,9 @@ const HomepageAdmin = () => {
 
             if (editItem.image instanceof File) {
                 formData.append('image', editItem.image)
+            }
+            if (delImage) {
+                formData.append('delImg', true)
             }
 
             const update = await updateHomepageAdmin(editItem._id, formData);
@@ -183,24 +184,31 @@ const HomepageAdmin = () => {
     const handleClickButton = (e, item) => {
         setAnchoE(e.currentTarget)
         setMenuItem({ ...item });
-
     }
 
     return (
         <Box>
-            <Typography variant="h1" style={{ flexGrow: 1 }}>
+            <StyleTyp>
                 Home page admin.
-            </Typography>
+            </StyleTyp>
 
             {/* nút thêm */}
             <Container>
-                <Button onClick={handleCreatePost}>
+                <StyleButton onClick={handleCreatePost}>
                     Thêm +
-                </Button>
+                </StyleButton>
 
                 {/* mở nút thêm title n image  */}
                 <Dialog open={openAdd} onClose={() => { setOpenAdd(false); setimageReviewAdd('') }} fullWidth maxWidth='sm'>
                     <DialogContent>
+                        <TextField
+                            fullWidth
+                            margin='normal'
+                            label='type'
+                            value={createPost.type || ''}
+                            onChange={(e) => {
+                                setCreatePost(pre => ({ ...pre, type: e.target.value }))
+                            }} />
                         <TextField
                             fullWidth
                             margin='normal'
@@ -226,9 +234,10 @@ const HomepageAdmin = () => {
                                 onChange={handleInputImage}
                             />
                             <label htmlFor="upload-image-add"> {/* html for liên kết với id của input nha */}
-                                <Button variant="contained" component="span">
+                                <StyleButton component="span">
                                     Thêm ảnh
-                                </Button>
+                                </StyleButton>
+
                             </label>
 
                             {imageReviewAdd && (
@@ -262,6 +271,7 @@ const HomepageAdmin = () => {
                                 {/* <div ref={appRef}> */}
 
                                 <CardContent >
+                                    <Typography display={'block'} variant="h6" gutterBottom>{item.type}</Typography>
                                     <Typography display={'block'} variant="h7" gutterBottom>{item.title}</Typography>
                                     <Typography display={'block'} variant="h7" gutterBottom>{item.title_2}</Typography>
                                 </CardContent>
@@ -338,23 +348,35 @@ const HomepageAdmin = () => {
                                 onChange={handleImage}
                             />
                             <label htmlFor="upload-image"> {/* html for liên kết với id của input nha */}
-                                <Button variant="contained" component="span">
+                                <StyleButton component="span">
                                     Tải ảnh lên
-                                </Button>
+                                </StyleButton>
                             </label>
+
+                            {/* tạo vùng riêng để ẩn và hiện thị button và hình ảnh */}
+
+                            <Box>
+                                {imageReview ? (
+                                    <>
+                                        <Button onClick={handleDelImg}>
+                                            Xóa ảnh
+                                        </Button>
+                                        <img
+                                            src={imageReview}
+                                            alt="Preview"
+                                            style={{ marginTop: 10, width: 200 }}
+                                        />
+                                    </>
+
+                                ) : null}
+                            </Box>
                         </>
-                        {/* nếu imageReview có dữ liệu thì hiện ra thẻ image không thì không có giá trị  */}
-                        {imageReview && (
-                            <img
-                                src={imageReview}
-                                alt="Preview"
-                                style={{ marginTop: 10, width: 200 }}
-                            />
-                        )}
+
                     </Box>
-                    <Button variant="contained" color="primary" onClick={handleUpdateSave}>
+                    <StyleButton onClick={handleUpdateSave}>
                         Lưu Chỉnh Sửa
-                    </Button>
+                    </StyleButton>
+
                 </DialogContent>
             </Dialog>
             <Snackbar open={openSnackbar} autoHideDuration={3000}

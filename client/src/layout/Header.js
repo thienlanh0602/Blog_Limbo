@@ -1,4 +1,4 @@
-import { Box, IconButton, useMediaQuery, useTheme, Drawer, List, ListItem, ListItemText } from '@mui/material'
+import { Box, IconButton, useMediaQuery, useTheme, Drawer, List, ListItem, ListItemText, Container } from '@mui/material'
 import { Link } from "react-router-dom";
 import Logo from "../assets/image_logo.svg"
 import Arrow from "../assets/Arrow_1.svg"
@@ -48,11 +48,10 @@ function Header() {
                                         {item.label}
                                     </ButtonNav>
                                 ))}
-                                <Box>
                                     <ButtonImage>
                                         <BoxImage component='img' src={Arrow} />
                                     </ButtonImage>
-                                </Box>
+                                
                             </EditDrawer>
                         </>
                     ) : (

@@ -24,7 +24,7 @@ import { AppBar, Box, Button, Container, Drawer, Toolbar, Typography, useMediaQu
 // -------------------------------------------------------------
 export const StyleAppBar = ({
     children,
-    position = 'static',
+    position = 'fixed',
     sx = {}, ...props }) => {
     return (
         <AppBar
@@ -125,7 +125,13 @@ export const ButtonNav = ({ children, color = 'inherit', sx = {}, ...props }) =>
         <Button
             color={color}
             sx={{
+                display: 'flex',
+                fontSize: 18,
+                flexDirection: 'column',
                 textTransform: 'none',
+                px: 0,
+                justifyContent: 'flex-end',
+                width: '100%',
                 transition: 'all 0.3s ease',
                 '&:hover': {
                     color: '#1fc3a1',
@@ -179,30 +185,47 @@ export const TypographyLogo = ({ fontStyle = 'bold', ...props }) => {
 }
 
 // dieu chinh drawer 
-export const EditDrawer = ({ sx = {}, ...props }) => {
+export const EditDrawer = ({ children, sx = {}, ...props }) => {
     return (
         <Drawer
             anchor="right"
+            transitionDuration={0}
             PaperProps={{
                 sx: {
-                    width: 250,
-                    height: 250,
+                    height: 'auto',
+                    position: 'absolute',
                     backgroundColor: '#000',
                     color: '#000000',
                     backgroundColor: '#ffffff',
-                    boxShadow: 'none',
-                    border: 'none',
-                    top: 150
+                    boxShadow: 5,
+                    borderRadius: 5,
+                    top: 120,
+                    right: 40,
+                    px: 4,
+                    py: 2,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-end',
                 },
             }}
             ModalProps={{
                 BackdropProps: {
                     sx: {
-                        backgroundColor: 'transparent'
+                        backgroundColor: 'rgba(0, 0, 0, 0.03)'
                     },
                 },
             }}
-            {...props} />
+            {...props}>
+            <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 1,
+            }}>
+                {children}
+            </Box>
+
+        </Drawer>
 
     )
 }

@@ -8,9 +8,12 @@ export const StyleTypography_1 = ({ children, fontStyle = 'bold', gutterBottom =
             fontWeight={800}
             textTransform='uppercase'
             letterSpacing={-11}
-            sx={{
-                fontSize: 190
-            }}
+            sx={(theme) => ({
+                fontSize: 190,
+                [theme.breakpoints.down('md')]: {
+                    fontSize: 140,
+                },
+            })}
 
             {...props} >
 
@@ -21,11 +24,11 @@ export const StyleTypography_1 = ({ children, fontStyle = 'bold', gutterBottom =
 
 export const StyleTypography_2 = ({ children, gutterBottom = false, sx = {}, ...props }) => {
     return (
-       <Typography gutterBottom={gutterBottom}
-            
+        <Typography gutterBottom={gutterBottom}
+
             fontWeight={200}
-            
-            
+
+
             sx={{
                 fontSize: 22
             }}
@@ -36,7 +39,39 @@ export const StyleTypography_2 = ({ children, gutterBottom = false, sx = {}, ...
         </Typography>
     )
 }
+export const StyleTypography_3 = ({ children, fontStyle = 'bold', gutterBottom = false, sx = {}, ...props }) => {
+    return (
+        <Typography gutterBottom={gutterBottom}
+            fontStyle={fontStyle}
+            fontWeight={700}
+            textTransform='uppercase'
+            sx={{
+                fontSize: 22,
+            }}
 
+            {...props} >
+
+            {children}
+        </Typography>
+    )
+}
+
+export const StyleTypography_4 = ({ children, fontStyle = 'bold', gutterBottom = false, sx = {}, ...props }) => {
+    return (
+         <Typography gutterBottom={gutterBottom}
+            fontStyle={fontStyle}
+            fontWeight={700}
+            textTransform='uppercase'
+            sx={{
+                fontSize: 22,
+            }}
+
+            {...props} >
+
+            {children}
+        </Typography>
+    )
+}
 export const StyleSkeleton_1 = ({ variant = 'text', width = 300, height = 40, ...props }) => {
     return (
         <Skeleton
@@ -83,7 +118,7 @@ export const BoxImageHome = ({ maxwith = 'lg', sx = {}, ...props }) => {
         <Box
             sx={() => ({
                 width: 30,
-                height:30,
+                height: 30,
             })} {...props} />
 
 
