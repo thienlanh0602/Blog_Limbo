@@ -14,9 +14,10 @@ const homepageSchema = new mongoose.Schema({
     required: false,
   },
   image: {
-    type: String,
+    type: [String],
     required: false,
   },
+  
 }, { timestamps: true });
 
 const Homepage = mongoose.model('Homepage', homepageSchema);

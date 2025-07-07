@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Container, Box } from '@mui/material';
+import { Container, Box, CardMedia } from '@mui/material';
 import { getHomepage } from '../../api/homepageAPI'
 import { StyleTypography_1, StyleTypography_2, StyleSkeleton_1, StyleSkeleton_2, ButtonHomeImage, BoxImageHome, StyleTypography_3, StyleTypography_4 } from '../../components/homepage/home';
 import Arrow from "../../assets/Arrow_1.svg"
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Mousewheel } from 'swiper/modules';
+
 function Home() {
   const [data, setData] = useState([])
   useEffect(() => {
@@ -66,8 +65,6 @@ function Home() {
                 );
 
               case 'nav_3':
-              case 'nav_4':
-              case 'nav_5':
                 return (
                   <Box
                     key={index}
@@ -79,17 +76,54 @@ function Home() {
                       alignItems: 'center',
                     }}
                   >
-                    {item.image && (
-                      <Box
-                        component="img"
-                        src={`http://localhost:5000${item.image}`}
-                        alt={'Logo'}
-                        sx={{ width: '100%', maxWidth: 200, borderRadius: 2 }}
-                      />
+                    {Array.isArray(item.image) && item.image.length > 0 && (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2,  }}>
+                        {item.image.map((img, idx) => {
+                          switch (idx) {
+                            case 0:
+                              return (
+                                <CardMedia
+                                  key={idx}
+                                  component="img"
+                                  src={`http://localhost:5000${img}`}
+                                  sx={{
+                                    width: '30%',
+                                    height: '30%',
+                                  }}
+                                />
+                              );
+                            case 1:
+                              return (
+                                <CardMedia
+                                  key={idx}
+                                  component="img"
+                                  src={`http://localhost:5000${img}`}
+                                  sx={{
+                                    width: '30%',
+                                    height: '30%',
+                                  }}
+                                />
+                              );
+                              case 2:
+                              return (
+                                <CardMedia
+                                  key={idx}
+                                  component="img"
+                                  src={`http://localhost:5000${img}`}
+                                  sx={{
+                                    width: '30%',
+                                    height: '30%',
+                                  }}
+                                />
+                              );
+                            default:
+                              return null;
+                          }
+                        })}
+                      </Box>
                     )}
                   </Box>
                 );
-
 
               default:
                 return null;

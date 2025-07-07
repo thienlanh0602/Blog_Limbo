@@ -31,10 +31,8 @@ const HomepageAdmin = () => {
     const [open, setOpen] = useState(false);
 
     // state dành cho tạo bài 
-    const [createPost, setCreatePost] = useState({ type: '', title: '', title_2: '', image: null });
+    const [createPost, setCreatePost] = useState({ type: '', title: '', title_2: '', image: [] });
     const [openAdd, setOpenAdd] = useState(false);
-    //state image review
-    const [imageReviewAdd, setimageReviewAdd] = useState('');
 
     //lấy dữ liệu
     const handleCreatePost = (item) => {
@@ -43,28 +41,32 @@ const HomepageAdmin = () => {
     }
 
     //handle image input
+    const [imageReviewAdd, setimageReviewAdd] = useState(null);
     const handleInputImage = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setCreatePost((prev) => ({ ...prev, image: file }));
-            setimageReviewAdd(URL.createObjectURL(file));
+        const files = Array.from(e.target.files);
+        if (files.length) {
+            setCreatePost(prev => ({
+                ...prev,
+                image: [...(prev.image || []), ...files]  // nối thêm!
+            }));
+            setimageReviewAdd(prev => [...(prev || []), ...files.map(file => URL.createObjectURL(file))]);
         }
-
     }
 
-    //handle save post
+    //handle thêm 
     const handleSaveCreate = async () => {
         try {
             const newpost = new FormData();
             newpost.append('title', createPost.title);
             newpost.append('title_2', createPost.title_2);
             newpost.append('type', createPost.type);
-            if (createPost.image) {
-                newpost.append('image', createPost.image);
+            if (createPost.image && Array.isArray(createPost.image)) {
+                createPost.image.forEach(file => {
+                    newpost.append('image', file);
+                });
             }
 
             const list = await createHomePageAdmin(newpost);
-
             // refresh
             // setAdmin trả về danh sách và tất cả thuộc tính có trong danh sách dùng để refresh 
             setAdmin(e => [list, ...e]);
@@ -81,41 +83,8 @@ const HomepageAdmin = () => {
 
     // state dành cho chỉnh sửa
     const [editItem, setEditItem] = useState({});
-    const [imageReview, setimageReview] = useState(null);
-    const [delImage, setDelImage] = useState(false);
-
-    //handle del img while del img
-    const handleDelImg = () => {
-        setimageReview(null);
-        setDelImage(true);
-        setEditItem(pre => ({
-            ...pre,
-            image: '',
-        }))
-    }
-    const handleEdit = (item) => {
-        setEditItem({ ...item });
-
-        // xử lý ảnh khi có và không
-        if (item.image) {
-            setimageReview(`http://localhost:5000${item.image}`);
-        } else {
-            setimageReview(null);
-        }
-        setOpen(true);
-    }
-
-    //xy ly chon anh bang file
-    const handleImage = (e) => {
-        const file = e.target.files[0];
-        console.log(file)
-        if (file) {
-            setEditItem((pre) => ({ ...pre, image: file }));
-            setimageReview(URL.createObjectURL(file)); // chọn ảnh tạm review set vào image review
-            console.log(URL.createObjectURL(file))
-        }
-    }
-
+    const [imageReviewUpdate, setImageReviewUpdate] = useState([]);
+    const [imageFiles, setImageFiles] = useState([]);
     // xử lý trạng thái thông báo
     const [openSnackbar, setOpenSnackbar] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -128,6 +97,51 @@ const HomepageAdmin = () => {
     const handleCLoseSna = () => {
         setOpenSnackbar(false);
     }
+    
+    //handle del img while del img
+    const handleDelImg = (index) => {
+
+        setImageReviewUpdate(prev => {
+            const update = prev.filter((_, i) => i !== index);
+            return update.length === 0 ? null : update
+        })
+
+        setEditItem(prev => {
+            const updatedImages = prev.existingImages.filter((_, i) => i !== index);
+            return {
+                ...prev,
+                existingImages: updatedImages
+            };
+        });
+
+    }
+    // xử lý cho form chỉnh sửa
+    const handleEdit = (item) => {
+
+        setEditItem({ ...item, existingImages: item.image });
+        // xử lý ảnh khi có và không
+        if (Array.isArray(item.image) && item.image.length > 0) {
+            setImageReviewUpdate(item.image.map(img => `http://localhost:5000${img}`));
+        } else {
+            setImageReviewUpdate([]);
+        }
+        setImageFiles([]);
+        setOpen(true);
+    }
+
+    //xy ly chon anh bang file
+    const handleImageUpdate = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length) {
+            setImageFiles(prev => (
+                [...prev,
+                ...files]
+            ));
+            setImageReviewUpdate(prev => [...(prev || []), ...files.map(file => URL.createObjectURL(file))]);
+        }
+    }
+
+
 
     //xu ly update
     const handleUpdateSave = async () => {
@@ -136,11 +150,15 @@ const HomepageAdmin = () => {
             formData.append('title', editItem.title);
             formData.append('title_2', editItem.title_2);
 
-            if (editItem.image instanceof File) {
-                formData.append('image', editItem.image)
+            if (editItem.existingImages && editItem.existingImages.length) {
+                editItem.existingImages.forEach(url => {
+                    formData.append('existingImages[]', url);
+                });
             }
-            if (delImage) {
-                formData.append('delImg', true)
+            if (imageFiles.length) {
+                imageFiles.forEach(file => {
+                    formData.append('image', file);
+                });
             }
 
             const update = await updateHomepageAdmin(editItem._id, formData);
@@ -153,6 +171,8 @@ const HomepageAdmin = () => {
             setOpen(false);
             handleMessage('Đã chỉnh sửa thành công');
             setOpenSnackbar(true);
+            setImageFiles([]);
+            setImageReviewUpdate([]);
         } catch (error) {
             console.error('Cập nhật thất bại', error);
         }
@@ -199,8 +219,8 @@ const HomepageAdmin = () => {
                 </StyleButton>
 
                 {/* mở nút thêm title n image  */}
-                <Dialog open={openAdd} onClose={() => { setOpenAdd(false); setimageReviewAdd('') }} fullWidth maxWidth='sm'>
-                    <DialogContent>
+                <Dialog open={openAdd} onClose={() => { setOpenAdd(false); setimageReviewAdd('') }} fullWidth maxWidth='md'>
+                    <DialogContent >
                         <TextField
                             fullWidth
                             margin='normal'
@@ -224,33 +244,186 @@ const HomepageAdmin = () => {
                             onChange={(e) => {
                                 setCreatePost(pre => ({ ...pre, title_2: e.target.value }))
                             }} />
-                        {/* thẻ image */}
-                        <>
-                            <input
-                                accept="image/*"
-                                id="upload-image-add"  // Thằng này liên kết với htmlfor 
-                                hidden
-                                type="file"
-                                onChange={handleInputImage}
-                            />
-                            <label htmlFor="upload-image-add"> {/* html for liên kết với id của input nha */}
-                                <StyleButton component="span">
-                                    Thêm ảnh
-                                </StyleButton>
 
-                            </label>
+                        {/* 3 thẻ image */}
+                        <Box sx={{
+                            display: 'flex',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}>
+                            {/* thẻ image */}
+                            <Box sx={{
+                                border: '2px dashed #d1d5db',
+                                width: '100%',
+                                height: 230,
+                                borderRadius: '20px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                            }}>
+                                {/* thay đổi khi có hình ảnh */}
+                                {Array.isArray(imageReviewAdd) ? (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                            {imageReviewAdd.map((url, index) => (
+                                                <Box key={index}>
+                                                    {/* button xóa hiện trên ảnh */}
+                                                    <Button onClick={() => {
+                                                        setimageReviewAdd(prev => {
+                                                            const update = prev.filter((_, i) => i !== index);
+                                                            return update.length === 0 ? null : update
+                                                        })
+                                                    }}
+                                                        sx={{
+                                                            border: '1px solid #d1d5db',
+                                                            width: 30,
+                                                            height: 30,
+                                                            borderRadius: '50%',
+                                                            color: 'black',
+                                                        }}>
+                                                        X
+                                                    </Button>
+                                                    <img
+                                                        src={url}
+                                                        alt={`Preview ${index}`}
+                                                        style={{
+                                                            width: 200,
+                                                            height: 200,
+                                                            objectFit: 'contain',
+                                                            display: 'block',
+                                                            borderRadius: 8,
+                                                        }}
+                                                    />
+                                                    {/* thêm ở đây thêm 1 cái nút thêm ảnh khi muốn chỉnh sửa */}
 
-                            {imageReviewAdd && (
-                                <img
-                                    src={imageReviewAdd}
-                                    alt="Preview"
-                                    style={{ marginTop: 10, width: 200 }}
-                                />
-                            )}
-                        </>
+                                                </Box>
 
+                                            ))}
+                                        </Box>
+                                        {/* khi muốn thêm ảnh thì hiện nút add để thêm */}
+                                        <Box
+                                            sx={{
+                                                width: 200,
+                                                height: 200,
+                                                borderRadius: '10%',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                backgroundColor: '#f9fafb',
+                                                '&:hover': {
+                                                    backgroundColor: '#f3f4f6',
+                                                },
+                                                position: 'relative',
+                                                p: 0.5
+                                            }}
+                                        >
+                                            <label htmlFor="upload-image-add"> {/* html for liên kết với id của input nha */}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    id="upload-image-add"
+                                                    multiple
+                                                    style={{
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        opacity: 0,
+                                                        cursor: 'pointer',
+                                                    }}
+                                                    onChange={handleInputImage}
+                                                />
+                                            </label>
+
+                                            {/* icon */}
+                                            <Box
+                                                component="svg"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                strokeWidth={1.5}
+                                                stroke="#9ca3af"
+                                                sx={{ width: 40, height: 40, mb: 1 }}
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    d="M12 4.5v15m7.5-7.5h-15"
+                                                />
+                                            </Box>
+
+                                            <Typography variant="body1" sx={{ color: '#9ca3af' }}>
+                                                Upload photo
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                ) : (
+                                    <>
+                                        {/* nếu khác imageReview hoặc null thì ẩn */}
+                                        <Box
+                                            sx={{
+                                                width: 200,
+                                                height: 200,
+                                                borderRadius: '10%',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: 'pointer',
+                                                backgroundColor: '#f9fafb',
+                                                '&:hover': {
+                                                    backgroundColor: '#f3f4f6',
+                                                },
+                                                position: 'relative',
+                                                p: 0.5
+                                            }}
+                                        >
+                                            <label htmlFor="upload-image-add"> {/* html for liên kết với id của input nha */}
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    id="upload-image-add"
+                                                    multiple
+                                                    style={{
+                                                        position: 'absolute',
+                                                        inset: 0,
+                                                        opacity: 0,
+                                                        cursor: 'pointer',
+                                                    }}
+                                                    onChange={handleInputImage}
+                                                />
+                                            </label>
+
+                                            {/* icon */}
+                                            <Box
+                                                component="svg"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                strokeWidth={1.5}
+                                                stroke="#9ca3af"
+                                                sx={{ width: 40, height: 40, mb: 1 }}
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    d="M12 4.5v15m7.5-7.5h-15"
+                                                />
+                                            </Box>
+
+                                            <Typography variant="body1" sx={{ color: '#9ca3af' }}>
+                                                Upload photo
+                                            </Typography>
+                                        </Box>
+                                    </>
+                                )}
+                            </Box>
+                        </Box>
+                        <StyleButton onClick={handleSaveCreate}> Thêm </StyleButton>
                     </DialogContent>
-                    <Button onClick={handleSaveCreate}> Thêm </Button>
                 </Dialog>
 
             </Container>
@@ -276,12 +449,18 @@ const HomepageAdmin = () => {
                                     <Typography display={'block'} variant="h7" gutterBottom>{item.title_2}</Typography>
                                 </CardContent>
 
-                                {/* bỏ thuộc tính image nếu nó mảng đó không có image */}
-                                {item.image && (
-                                    <CardMedia component="img"
-                                        src={`http://localhost:5000${item.image}`}
-                                        sx={{ width: '10%', maxWidth: 600, borderRadius: 2 }}
-                                    />
+
+                                {Array.isArray(item.image) && item.image.length > 0 && (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                        {item.image.map((img, idx) => (
+                                            <CardMedia
+                                                key={idx}
+                                                component="img"
+                                                src={`http://localhost:5000${img}`}
+                                                sx={{ width: 100, borderRadius: 2 }}
+                                            />
+                                        ))}
+                                    </Box>
                                 )}
 
                                 {/* e ở đây là truyền event vào để thêm e vào menu */}
@@ -307,23 +486,6 @@ const HomepageAdmin = () => {
                 )}
             </Container>
 
-            {/* mở form confirm xóa */}
-            <Dialog open={openDailogDel} onClose={() => setOpenDailogDel(false)}>
-
-                <DialogContent>
-                    Bạn có muốn xóa ?
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDailogDel(false)}>
-                        Hủy
-                    </Button>
-                    <Button onClick={handleDelete} color="error">
-                        Xóa
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* </div> */}
             {/* mở form chỉnh sửa */}
             <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth='sm'>
                 <DialogTitle> Chỉnh sửa bài viết</DialogTitle>
@@ -338,46 +500,137 @@ const HomepageAdmin = () => {
                         margin='nomal'
                         value={editItem?.title_2}
                         onChange={(e) => setEditItem((prev) => ({ ...prev, title_2: e.target.value }))} />
-                    <Box mt={3}>
-                        <>
-                            <input
-                                accept="image/*"
-                                id="upload-image"  // Thằng này liên kết với htmlfor 
-                                hidden
-                                type="file"
-                                onChange={handleImage}
-                            />
-                            <label htmlFor="upload-image"> {/* html for liên kết với id của input nha */}
-                                <StyleButton component="span">
-                                    Tải ảnh lên
-                                </StyleButton>
-                            </label>
+                    <Box sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        {/* thẻ image */}
+                        <Box sx={{
+                            border: '2px dashed #d1d5db',
+                            width: '100%',
+                            height: 230,
+                            borderRadius: '20px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                        }}>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                {Array.isArray(imageReviewUpdate) ? (
+                                    imageReviewUpdate.map((url, index) => (
+                                        <Box key={index}>
+                                            <Button onClick={() => {
+                                                handleDelImg(index)
+                                            }}
+                                                sx={{
+                                                    border: '1px solid #d1d5db',
+                                                    width: 30,
+                                                    height: 30,
+                                                    borderRadius: '50%',
+                                                    color: 'black',
+                                                }}>
+                                                X
+                                            </Button>
+                                            <img key={index} src={url} alt={`Preview ${index}`}
+                                                style={{
+                                                    width: 100,
+                                                    height: 100,
+                                                    objectFit: 'contain',
+                                                    display: 'block',
+                                                    borderRadius: 8,
+                                                }} />
+                                        </Box>
+                                    ))
+                                ) : (
+                                    imageReviewUpdate && <img src={imageReviewUpdate} alt="Preview" />
+                                )}
 
-                            {/* tạo vùng riêng để ẩn và hiện thị button và hình ảnh */}
-
-                            <Box>
-                                {imageReview ? (
-                                    <>
-                                        <Button onClick={handleDelImg}>
-                                            Xóa ảnh
-                                        </Button>
-                                        <img
-                                            src={imageReview}
-                                            alt="Preview"
-                                            style={{ marginTop: 10, width: 200 }}
+                                <Box
+                                    sx={{
+                                        width: 100,
+                                        height: 100,
+                                        borderRadius: '10%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#f9fafb',
+                                        '&:hover': {
+                                            backgroundColor: '#f3f4f6',
+                                        },
+                                        position: 'relative',
+                                        p: 0.5
+                                    }}
+                                >
+                                    <label htmlFor="upload-image-add"> {/* html for liên kết với id của input nha */}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            id="upload-image-add"
+                                            multiple
+                                            style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                opacity: 0,
+                                                cursor: 'pointer',
+                                            }}
+                                            onChange={handleImageUpdate}
                                         />
-                                    </>
+                                    </label>
 
-                                ) : null}
+                                    {/* icon */}
+                                    <Box
+                                        component="svg"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        strokeWidth={1.5}
+                                        stroke="#9ca3af"
+                                        sx={{ width: 40, height: 40, mb: 1 }}
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M12 4.5v15m7.5-7.5h-15"
+                                        />
+                                    </Box>
+
+                                    <Typography variant="body1" sx={{ color: '#9ca3af' }}>
+                                        Upload photo
+                                    </Typography>
+                                </Box>
                             </Box>
-                        </>
-
+                        </Box>
                     </Box>
+
+
                     <StyleButton onClick={handleUpdateSave}>
                         Lưu Chỉnh Sửa
                     </StyleButton>
 
                 </DialogContent>
+            </Dialog>
+
+
+
+            {/* mở form confirm xóa */}
+            <Dialog open={openDailogDel} onClose={() => setOpenDailogDel(false)}>
+
+                <DialogContent>
+                    Bạn có muốn xóa ?
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDailogDel(false)}>
+                        Hủy
+                    </Button>
+                    <Button onClick={handleDelete} color="error">
+                        Xóa
+                    </Button>
+                </DialogActions>
             </Dialog>
             <Snackbar open={openSnackbar} autoHideDuration={3000}
                 onClose={handleCLoseSna} message={snackbarMessage}

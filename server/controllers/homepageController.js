@@ -16,10 +16,9 @@ const createHomepage = async (req, res, next) => {
     try {
         const { title, title_2, type } = req.body;
 
-        const imagePath = req.file ? `/uploads/${req.file.filename}` : '';
-        // console.log("req.file:", req.file);
+        const imagePaths = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
 
-        const homepage = new Homepage({ title, title_2, type, image: imagePath });
+        const homepage = new Homepage({ title, title_2, type, image: imagePaths });
         await homepage.save();
 
         return res.status(201).json(homepage);
@@ -33,14 +32,23 @@ const createHomepage = async (req, res, next) => {
 //update homepage
 const updateHomepage = async (req, res) => {
     try {
-        const { title, title_2, delImg } = req.body;
-        const imagePath = req.file ? `/uploads/${req.file.filename}` : undefined;
+        const { title, title_2, existingImages } = req.body;
+        const imagePaths = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
 
         const updateData = {};
         if (title) updateData.title = title;
         if (title_2) updateData.title_2 = title_2;
-        if (imagePath) updateData.image = imagePath;
-        else if (delImg === true || delImg === 'true') updateData.image = '';
+
+        let finalImages = [];
+        if (Array.isArray(existingImages)) {
+            finalImages = finalImages.concat(existingImages);
+        } else if (existingImages) {
+            finalImages.push(existingImages); // trường hợp chỉ còn 1 ảnh cũ
+        }
+
+        finalImages = finalImages.concat(imagePaths);
+
+        updateData.image = finalImages;
 
         const homePage = await Homepage.findByIdAndUpdate(req.params.id, updateData, {
             new: true,
