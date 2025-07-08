@@ -97,7 +97,7 @@ const HomepageAdmin = () => {
     const handleCLoseSna = () => {
         setOpenSnackbar(false);
     }
-    
+
     //handle del img while del img
     const handleDelImg = (index) => {
 
@@ -202,21 +202,23 @@ const HomepageAdmin = () => {
 
 
     const handleClickButton = (e, item) => {
-        setAnchoE(e.currentTarget)
+        setAnchoE(e.currentTarget);
         setMenuItem({ ...item });
     }
 
     return (
-        <Box>
-            <StyleTyp>
-                Home page admin.
-            </StyleTyp>
+        <Container>
 
             {/* nút thêm */}
             <Container>
-                <StyleButton onClick={handleCreatePost}>
-                    Thêm +
-                </StyleButton>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    <StyleTyp>
+                        Home page admin.
+                    </StyleTyp>
+                    <StyleButton onClick={handleCreatePost}>
+                        Thêm +
+                    </StyleButton>
+                </Box>
 
                 {/* mở nút thêm title n image  */}
                 <Dialog open={openAdd} onClose={() => { setOpenAdd(false); setimageReviewAdd('') }} fullWidth maxWidth='md'>
@@ -427,67 +429,115 @@ const HomepageAdmin = () => {
                 </Dialog>
 
             </Container>
-            <Container>
-                {/* reload giao diện => để kiểm tra dữ liệu */}
+            <Container sx={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                 {getAdmin.length === 0 ? (
-                    // giao diện reload của mui đang tải dữ liệu
                     <Container sx={{ mt: 4 }}>
                         <Skeleton variant="text" width={300} height={40} />
                         <Skeleton variant="rectangular" width={600} height={300} sx={{ mt: 2 }} />
                     </Container>
                 ) : (
                     getAdmin.map((item) => (
-                        <Stack key={item._id} spacing={2} mt={1}>
+                        <Card key={item._id} sx={{ width: 340, borderRadius: 3, overflow: 'hidden' }}>
+                            {/* Ảnh section */}
 
-                            <Card>
-                                {/* này là của inert */}
-                                {/* <div ref={appRef}> */}
+                            <Box sx={{ display: 'flex', height: 100, gap: 1 }}>
+                                {item.image.length === 1 && (
+                                    <CardMedia
+                                        component="img"
+                                        image={`http://localhost:5000${item.image[0]}`}
+                                        sx={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            borderRadius: 2,
+                                        }}
+                                    />
+                                )}
 
-                                <CardContent >
-                                    <Typography display={'block'} variant="h6" gutterBottom>{item.type}</Typography>
-                                    <Typography display={'block'} variant="h7" gutterBottom>{item.title}</Typography>
-                                    <Typography display={'block'} variant="h7" gutterBottom>{item.title_2}</Typography>
-                                </CardContent>
-
-
-                                {Array.isArray(item.image) && item.image.length > 0 && (
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                {item.image.length === 2 && (
+                                    <>
                                         {item.image.map((img, idx) => (
                                             <CardMedia
                                                 key={idx}
                                                 component="img"
-                                                src={`http://localhost:5000${img}`}
-                                                sx={{ width: 100, borderRadius: 2 }}
+                                                image={`http://localhost:5000${img}`}
+                                                sx={{
+                                                    flex: 1,
+                                                    height: '100%',
+                                                    objectFit: 'cover',
+                                                    borderRadius: 2,
+                                                }}
                                             />
                                         ))}
-                                    </Box>
+                                    </>
                                 )}
 
-                                {/* e ở đây là truyền event vào để thêm e vào menu */}
-                                <IconButton onClick={(e) => handleClickButton(e, item)}>
-                                    Menu Item
-                                </IconButton>
+                                {item.image.length >= 3 && (
+                                    <>
+                                        {item.image.slice(0, 3).map((img, idx) => (
+                                            <CardMedia
+                                                key={idx}
+                                                component="img"
+                                                image={`http://localhost:5000${img}`}
+                                                sx={{
+                                                    flex: 1,
+                                                    height: '100%',
+                                                    objectFit: 'cover',
+                                                    borderRadius: 2,
+                                                }}
+                                            />
+                                        ))}
+                                    </>
+                                )}
+                            </Box>
 
-                                <Menu anchorEl={anchorE} open={Boolean(anchorE)} onClose={() => setAnchoE(null)}>
-                                    {/* button mang theo dữ liệu trong handleEdit */}
-                                    {/* phân cấp nếu menu là phải dùng state khác với state dùng để chỉnh sửa dữ liệu vẫn tham chiếu chung */}
-                                    <MenuItem onClick={() => { handleEdit(menuItem); setAnchoE(null) }}>
-                                        Chỉnh sửa
-                                    </MenuItem>
-                                    {/* phải setItem lại tại vì item đang undefined và đang nằm trong map nữa  */}
-                                    <MenuItem color='error' onClick={() => { setEditItem(menuItem); setOpenDailogDel(true); setAnchoE(null) }}>
-                                        Xóa
-                                    </MenuItem>
-                                </Menu>
+                            {/* {item.image[1] && (
+                                        <CardMedia
+                                            component="img"
+                                            image={`http://localhost:5000${item.image[1]}`}
+                                            sx={{ width: '100%', height: 'calc(50% - 4px)', objectFit: 'cover' }}
+                                        />
+                                    )}
+                                    {item.image[2] && (
+                                        <CardMedia
+                                            component="img"
+                                            image={`http://localhost:5000${item.image[2]}`}
+                                            sx={{ width: '100%', height: 'calc(50% - 4px)', borderRadius: 2, objectFit: 'cover' }}
+                                        />
+                                    )} */}
 
-                            </Card>
-                        </Stack>
+
+
+
+
+                            {/* Info section */}
+                            < CardContent >
+                                <Box sx={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    mb: 1
+                                }}>
+                                    <Typography variant="h6">{item.type}</Typography>
+                                    <Button onClick={(e) => handleClickButton(e, item)}>Menu Item</Button>
+                                </Box>
+
+                                <Typography variant="body1" gutterBottom>{item.title}</Typography>
+                                <Typography variant="body2" gutterBottom>{item.title_2}</Typography>
+                            </CardContent>
+
+                            {/* Menu */}
+                            <Menu anchorEl={anchorE} open={Boolean(anchorE)} onClose={() => setAnchoE(null)}>
+                                <MenuItem onClick={() => { handleEdit(menuItem); setAnchoE(null) }}>Chỉnh sửa</MenuItem>
+                                <MenuItem onClick={() => { setEditItem(menuItem); setOpenDailogDel(true); setAnchoE(null) }}>Xóa</MenuItem>
+                            </Menu>
+                        </Card>
                     ))
                 )}
-            </Container>
+            </Container >
 
             {/* mở form chỉnh sửa */}
-            <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth='sm'>
+            < Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth='sm' >
                 <DialogTitle> Chỉnh sửa bài viết</DialogTitle>
                 <DialogContent>
                     <TextField
@@ -613,12 +663,12 @@ const HomepageAdmin = () => {
                     </StyleButton>
 
                 </DialogContent>
-            </Dialog>
+            </Dialog >
 
 
 
             {/* mở form confirm xóa */}
-            <Dialog open={openDailogDel} onClose={() => setOpenDailogDel(false)}>
+            < Dialog open={openDailogDel} onClose={() => setOpenDailogDel(false)}>
 
                 <DialogContent>
                     Bạn có muốn xóa ?
@@ -631,11 +681,11 @@ const HomepageAdmin = () => {
                         Xóa
                     </Button>
                 </DialogActions>
-            </Dialog>
+            </Dialog >
             <Snackbar open={openSnackbar} autoHideDuration={3000}
                 onClose={handleCLoseSna} message={snackbarMessage}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} />
-        </Box>
+        </Container >
 
     );
 };

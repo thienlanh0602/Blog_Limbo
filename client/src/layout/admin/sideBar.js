@@ -1,8 +1,17 @@
-import { Box, List, ListItem, ListItemText, Button } from '@mui/material';
+import { Box, List, ListItem, ListItemText, Button, Container, Typography } from '@mui/material';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavLink } from 'react-router-dom';
+import { StyleContainer } from '../../components/admin/sideBar';
+import Logo from "../../assets/image_logo.svg"
+import { ReactComponent as HomePageIcon } from "../../assets/nav_admin/homepage.svg"
+import { ReactComponent as ResumeIcon } from "../../assets/nav_admin/resume.svg"
+import { ReactComponent as MusicIcon } from "../../assets/nav_admin/music.svg"
+import { ReactComponent as ColorIcon } from "../../assets/nav_admin/color.svg"
+import { ReactComponent as ImageIcon } from "../../assets/nav_admin/image.svg"
+import { ReactComponent as DiyIcon } from "../../assets/nav_admin/diy.svg"
+
 
 
 const API_URL = process.env.REACT_APP_API_URL;
@@ -11,12 +20,12 @@ const API_URL = process.env.REACT_APP_API_URL;
 const Sidebar = () => {
     const [adminName, setAdminName] = useState('')
     const links = [
-        { label: 'HOMEPAGE', path: '/admin' },
-        { label: 'RESUME', path: '/admin/resume' },
-        { label: 'MUSIC', path: '/admin/music' },
-        { label: 'COLOR', path: '/admin/color' },
-        { label: 'IMAGE', path: '/admin/image' },
-        { label: 'DIY', path: '/admin/diy' },
+        { label: 'Home page', path: '/admin', icon: HomePageIcon },
+        { label: 'Resume', path: '/admin/resume', icon: ResumeIcon },
+        { label: 'Music', path: '/admin/music', icon: MusicIcon },
+        { label: 'Color', path: '/admin/color', icon: ColorIcon },
+        { label: 'Image', path: '/admin/image', icon: ImageIcon },
+        { label: 'DIY', path: '/admin/diy', icon: HomePageIcon },
     ];
     //logout tai khoan admin
     const navigate = useNavigate();
@@ -47,40 +56,40 @@ const Sidebar = () => {
 
     return (
 
-        <Box
-            sx={{
-                width: 240,           // Chiều rộng sidebar phải trùng với drawerWidth
-                height: '100vh',
-                bgcolor: '#f5f5f5',
-                p: 2,
-                position: 'fixed',
-                top: 0,
-                left: 0,
-            }}
-        >
+        <StyleContainer >
+            <Box component="img" src={Logo} alt="Logo" sx={{ height: 40 }} />
+            {/* <Box sx={{ pb: 1, fontSize: '0.9rem', color: 'gray' }}>
+                Hi {adminName}
+            </Box> */}
+
             <List>
-                {links.map((item) => (
-                    <ListItem key={item.path} component={NavLink} to={item.path} >
-                        <ListItemText primary={item.label} />
-                    </ListItem>
-                ))}
+                {links.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                        <ListItem
+                            sx={{ px: 0, py: 1.5}}
+                            key={item.path}
+                            component={NavLink}
+                            to={item.path}
+                        >
+                            {/* Icon */}
+                            {Icon && <Icon style={{ width: 20, height: 20, marginRight: 8 }} />}
+
+                            <Typography px={1} fontWeight={400} fontSize={14}>
+                                {item.label}
+                            </Typography>
+                        </ListItem>
+                    );
+                })}
             </List>
 
-            {/* Dòng chào admin */}
-            <Box sx={{ flexGrow: 1 }} />
-
-            {/* Dòng chào admin sát lề dưới */}
-            <Box sx={{ pb: 1, textAlign: 'center', fontSize: '0.9rem', color: 'gray' }}>
-                Hi {adminName}
-            </Box>
-
-            <Button onClick={handleLogout}>
+            <Button sx={{}} onClick={handleLogout}>
                 Logout
             </Button>
 
 
 
-        </Box>
+        </StyleContainer>
     );
 };
 
