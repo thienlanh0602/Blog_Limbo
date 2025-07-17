@@ -4,7 +4,7 @@ import { Outlet } from 'react-router-dom';
 
 const AdminLayout = () => {
 
-  const drawerWidth = 240;
+  const drawerWidth = 280;
   return (
     <Box sx={{ display: 'flex' }}>
       <Sidebar />

@@ -1,15 +1,13 @@
 import {
-    Typography, Box, Container, Skeleton,
-    Button, Dialog, TextField, Stack, Card,
-    CardContent, CardMedia, DialogContent,
-    DialogTitle, DialogActions, Menu, MenuItem,
-    IconButton, Snackbar,
+    Typography, Box, Container, Skeleton, Button,
+    Dialog, TextField, CardContent, DialogContent,
+    DialogTitle, DialogActions, MenuItem, Snackbar,
 } from '@mui/material';
 
 import { useEffect, useState } from 'react';
 import { getHomepageAdmin, updateHomepageAdmin, deleteHomepageAdmin, createHomePageAdmin } from '../../../api/adminAPI';
-import { StyleButton, StyleTyp } from '../../../components/admin/homepage';
-
+import { ButtonMenu, StyleButton, StyleCard, StyleCardContainer, StyleMenu, StyleTyp } from '../../../components/admin/homepage';
+import { ReactComponent as IconMenu } from '../../../assets/icon_menu.svg'
 
 const HomepageAdmin = () => {
 
@@ -141,8 +139,6 @@ const HomepageAdmin = () => {
         }
     }
 
-
-
     //xu ly update
     const handleUpdateSave = async () => {
         try {
@@ -211,9 +207,9 @@ const HomepageAdmin = () => {
 
             {/* nút thêm */}
             <Container>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, my: 4 }}>
                     <StyleTyp>
-                        Home page admin.
+                        Home page admin
                     </StyleTyp>
                     <StyleButton onClick={handleCreatePost}>
                         Thêm +
@@ -429,7 +425,7 @@ const HomepageAdmin = () => {
                 </Dialog>
 
             </Container>
-            <Container sx={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            <StyleCardContainer>
                 {getAdmin.length === 0 ? (
                     <Container sx={{ mt: 4 }}>
                         <Skeleton variant="text" width={300} height={40} />
@@ -437,104 +433,103 @@ const HomepageAdmin = () => {
                     </Container>
                 ) : (
                     getAdmin.map((item) => (
-                        <Card key={item._id} sx={{ width: 340, borderRadius: 3, overflow: 'hidden' }}>
+                        <StyleCard key={item._id}>
                             {/* Ảnh section */}
 
-                            <Box sx={{ display: 'flex', height: 100, gap: 1 }}>
-                                {item.image.length === 1 && (
-                                    <CardMedia
+                            <Box sx={{
+                                display: 'flex', justifyContent: 'center',
+                                alignItems: 'center', flexWrap: 'wrap',
+                                borderBottom: 2, height: 120
+                            }}>
+                                {item.image && item.image.length === 1 && (
+                                    <Box
                                         component="img"
-                                        image={`http://localhost:5000${item.image[0]}`}
+                                        src={`http://localhost:5000${item.image[0]}`}
+                                        alt="image-0"
                                         sx={{
-                                            width: '100%',
-                                            height: '100%',
+                                            width: '30%',
                                             objectFit: 'cover',
                                             borderRadius: 2,
                                         }}
                                     />
                                 )}
 
-                                {item.image.length === 2 && (
-                                    <>
-                                        {item.image.map((img, idx) => (
-                                            <CardMedia
+                                {item.image && item.image.length >= 2 && (
+                                    <Box
+                                        sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: `repeat(${item.image.length >= 3 ? 3 : 2}, 1fr)`,
+                                            width: '100%',
+                                            height: '100%',
+                                        }}
+                                    >
+                                        {item.image.slice(0, 3).map((img, idx, arr) => (
+                                            <Box
                                                 key={idx}
-                                                component="img"
-                                                image={`http://localhost:5000${img}`}
                                                 sx={{
-                                                    flex: 1,
-                                                    height: '100%',
-                                                    objectFit: 'cover',
-                                                    borderRadius: 2,
+                                                    borderRight: idx !== arr.length - 1 ? '2px solid black' : 'none',
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
                                                 }}
-                                            />
+                                            >
+                                                <Box
+                                                    component="img"
+                                                    src={`http://localhost:5000${img}`}
+                                                    alt={`image-${idx}`}
+                                                    sx={{
+                                                        width: item.image.length !== 1 ? '60%': 'auto',
+
+                                                        objectFit: 'cover',
+                                                    }}
+                                                />
+                                            </Box>
                                         ))}
-                                    </>
+                                    </Box>
                                 )}
 
-                                {item.image.length >= 3 && (
-                                    <>
-                                        {item.image.slice(0, 3).map((img, idx) => (
-                                            <CardMedia
-                                                key={idx}
-                                                component="img"
-                                                image={`http://localhost:5000${img}`}
-                                                sx={{
-                                                    flex: 1,
-                                                    height: '100%',
-                                                    objectFit: 'cover',
-                                                    borderRadius: 2,
-                                                }}
-                                            />
-                                        ))}
-                                    </>
+                                {(!item.image || item.image.length === 0) && (
+                                    <Box
+                                        sx={{
+                                            width: 60,
+                                            height: 60,
+                                            border: '2px dashed gray',
+                                            borderRadius: 2,
+                                            backgroundColor: '#f8f8f8',
+                                        }}
+                                    />
                                 )}
                             </Box>
 
-                            {/* {item.image[1] && (
-                                        <CardMedia
-                                            component="img"
-                                            image={`http://localhost:5000${item.image[1]}`}
-                                            sx={{ width: '100%', height: 'calc(50% - 4px)', objectFit: 'cover' }}
-                                        />
-                                    )}
-                                    {item.image[2] && (
-                                        <CardMedia
-                                            component="img"
-                                            image={`http://localhost:5000${item.image[2]}`}
-                                            sx={{ width: '100%', height: 'calc(50% - 4px)', borderRadius: 2, objectFit: 'cover' }}
-                                        />
-                                    )} */}
-
-
-
-
-
                             {/* Info section */}
-                            < CardContent >
-                                <Box sx={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'flex-start',
-                                    mb: 1
-                                }}>
-                                    <Typography variant="h6">{item.type}</Typography>
-                                    <Button onClick={(e) => handleClickButton(e, item)}>Menu Item</Button>
+                            < CardContent  >
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        mb: 1,
+                                    }}
+                                >
+                                    <Typography fontWeight={600}>{item.type}</Typography>
+                                    <ButtonMenu onClick={(e) => handleClickButton(e, item)}>
+                                        <IconMenu style={{ height: 12, width: 12 }} />
+                                    </ButtonMenu>
                                 </Box>
 
-                                <Typography variant="body1" gutterBottom>{item.title}</Typography>
-                                <Typography variant="body2" gutterBottom>{item.title_2}</Typography>
+                                <Typography gutterBottom>{item.title || ''}</Typography>
+                                <Typography gutterBottom>{item.title_2 || ''}</Typography>
                             </CardContent>
 
                             {/* Menu */}
-                            <Menu anchorEl={anchorE} open={Boolean(anchorE)} onClose={() => setAnchoE(null)}>
+                            <StyleMenu anchorEl={anchorE} open={Boolean(anchorE)} onClose={() => setAnchoE(null)}>
                                 <MenuItem onClick={() => { handleEdit(menuItem); setAnchoE(null) }}>Chỉnh sửa</MenuItem>
                                 <MenuItem onClick={() => { setEditItem(menuItem); setOpenDailogDel(true); setAnchoE(null) }}>Xóa</MenuItem>
-                            </Menu>
-                        </Card>
+                            </StyleMenu>
+                        </StyleCard>
                     ))
                 )}
-            </Container >
+            </StyleCardContainer >
 
             {/* mở form chỉnh sửa */}
             < Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth='sm' >

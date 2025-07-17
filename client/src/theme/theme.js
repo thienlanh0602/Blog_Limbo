@@ -4,6 +4,10 @@ const theme = createTheme({
   breakpoints, //kich thuoc man hinh
   typography: {
     fontFamily: 'Kanit, sans-serif',
+    fontSize: 16,
+    body1: {
+      fontSize: '16px',
+    },
   },
   components: {
     MuiButton: {
@@ -15,7 +19,6 @@ const theme = createTheme({
           boxShadow: 'none',
           textTransform: 'none',
           '&:hover': {
-            backgroundColor: 'transparent',
             boxShadow: 'none',
           },
           '&:active': {
