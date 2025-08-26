@@ -1,14 +1,17 @@
-import React from "react";
-import { Typography } from "@mui/material";
-function ColorAdmin(){
-    return(
+import { SectionHeader } from '../../../components/admin/selectionHeader';
+import {
+  StyleButton, StyleTyp,
+} from '../../../components/admin/homepage';
 
-        <Typography variant="h1" style={{ flexGrow: 1 }}>
-          Color admin
-        </Typography>
-
-
-    );
+function ColorAdmin() {
+  return (
+    <>
+      <SectionHeader
+        title={<StyleTyp>Color</StyleTyp>}
+        action={<StyleButton>Thêm +</StyleButton>}
+      />
+    </>
+  );
 }
 
 export default ColorAdmin;

@@ -8,15 +8,17 @@ const AdminLayout = () => {
   return (
     <Box sx={{ display: 'flex' }}>
       <Sidebar />
+
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          ml: `${drawerWidth}px`, // Đẩy nội dung sang phải đúng chiều rộng sidebar
-          p: 5,
+          ml: `${drawerWidth}px`,
         }}
       >
+
         <Outlet />
+
       </Box>
     </Box>
   );

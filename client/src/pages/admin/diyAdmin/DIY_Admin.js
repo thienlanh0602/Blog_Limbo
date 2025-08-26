@@ -1,14 +1,17 @@
-import React from "react";
-import { Typography } from "@mui/material";
-function DIYAdmin(){
-    return(
+import { SectionHeader } from '../../../components/admin/selectionHeader';
+import {
+  StyleButton, StyleTyp,
+} from '../../../components/admin/homepage';
+function DIYAdmin() {
+  return (
+    <>
+      <SectionHeader
+        title={<StyleTyp>DIY</StyleTyp>}
+        action={<StyleButton>Thêm +</StyleButton>}
+      />
+    </>
 
-        <Typography variant="h1" style={{ flexGrow: 1 }}>
-          DIY admin
-        </Typography>
-
-
-    );
+  );
 }
 
 export default DIYAdmin;

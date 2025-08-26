@@ -8,11 +8,13 @@ export const StyleTypography_1 = ({ children, fontStyle = 'bold', gutterBottom =
             fontWeight={800}
             textTransform='uppercase'
             letterSpacing={-11}
+            lineHeight={1}
             sx={(theme) => ({
                 fontSize: 190,
                 [theme.breakpoints.down('md')]: {
                     fontSize: 140,
                 },
+                zIndex: 1
             })}
 
             {...props} >
@@ -27,10 +29,10 @@ export const StyleTypography_2 = ({ children, gutterBottom = false, sx = {}, ...
         <Typography gutterBottom={gutterBottom}
 
             fontWeight={200}
-
-
             sx={{
-                fontSize: 22
+                fontSize: 16,
+                position: "relative",
+
             }}
 
             {...props} >
@@ -46,7 +48,7 @@ export const StyleTypography_3 = ({ children, fontStyle = 'bold', gutterBottom =
             fontWeight={700}
             textTransform='uppercase'
             sx={{
-                fontSize: 22,
+                fontSize: 16,
             }}
 
             {...props} >
@@ -58,12 +60,12 @@ export const StyleTypography_3 = ({ children, fontStyle = 'bold', gutterBottom =
 
 export const StyleTypography_4 = ({ children, fontStyle = 'bold', gutterBottom = false, sx = {}, ...props }) => {
     return (
-         <Typography gutterBottom={gutterBottom}
+        <Typography gutterBottom={gutterBottom}
             fontStyle={fontStyle}
             fontWeight={700}
             textTransform='uppercase'
             sx={{
-                fontSize: 22,
+                fontSize: 16,
             }}
 
             {...props} >
@@ -103,11 +105,13 @@ export const ButtonHomeImage = ({ children, maxwith = 'lg', sx = {}, ...props })
             sx={() => ({
                 backgroundColor: '#4efcd3',
                 border: '2px solid black',
-                borderRadius: 10,
+                borderRadius: 0,
                 minWidth: 140,
-                minHeight: 70,
+                minHeight: 50,
                 color: 'black',
-
+                boxShadow: '3px 3px 0px black',
+                zIndex: 1,
+                mt: 2
             })} {...props}>
             {children}
         </Button>
@@ -117,8 +121,8 @@ export const BoxImageHome = ({ maxwith = 'lg', sx = {}, ...props }) => {
     return (
         <Box
             sx={() => ({
-                width: 30,
-                height: 30,
+                width: 20,
+                height: 20,
             })} {...props} />
 
 

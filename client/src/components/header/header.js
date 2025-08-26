@@ -37,7 +37,7 @@ export const StyleAppBar = ({
                 [theme.breakpoints.down('ay')]: {
                     backgroundColor: '#000000'
                 },
-                pt: 8 // khoảng cách appbar với top
+
             })} {...props} >
 
             {children}
@@ -126,7 +126,7 @@ export const ButtonNav = ({ children, color = 'inherit', sx = {}, ...props }) =>
             color={color}
             sx={{
                 display: 'flex',
-                fontSize: 18,
+                fontSize: 16,
                 flexDirection: 'column',
                 textTransform: 'none',
                 px: 0,
@@ -152,10 +152,12 @@ export const ButtonImage = ({ children, maxwith = 'lg', sx = {}, ...props }) => 
             sx={() => ({
                 backgroundColor: '#4efcd3',
                 border: '1px solid black',
-                borderRadius: 5,
-                minWidth: 50,
-                minHeight: 30,
+                borderRadius: 0,
+                minWidth: 45,
+                minHeight: 25,
                 color: 'black',
+                boxShadow: '3px 3px 0px black',
+
 
             })} {...props}>
             {children}

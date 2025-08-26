@@ -1,14 +1,17 @@
-import React from "react";
-import { Typography } from "@mui/material";
-function ImageAdmin(){
-    return(
+import { SectionHeader } from '../../../components/admin/selectionHeader';
+import {
+  StyleButton, StyleTyp,
+} from '../../../components/admin/homepage';
 
-        <Typography variant="h1" style={{ flexGrow: 1 }}>
-          Image admin
-        </Typography>
-
-
-    );
+function ImageAdmin() {
+  return (
+    <>
+      <SectionHeader
+        title={<StyleTyp>Image</StyleTyp>}
+        action={<StyleButton>Thêm +</StyleButton>}
+      />
+    </>
+  );
 }
 
 export default ImageAdmin;

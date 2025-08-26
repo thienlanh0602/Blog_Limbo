@@ -1,3 +1,14 @@
+html {
+  scroll-behavior: smooth;
+}
+
+/* html, body {
+  height: 100%;
+  scroll-behavior: smooth;
+  scroll-snap-type: y mandatory;
+  overflow-y: scroll;
+} */
+
 .App {
   text-align: center;
 }
@@ -46,6 +57,7 @@
   font-weight: 400;
   font-style: normal;
 }
+
 /* Extra Light */
 @font-face {
   font-family: 'Kanit';
@@ -131,4 +143,27 @@ a:visited {
   color: inherit;
   text-decoration: none;
   outline: none;
+}
+
+
+/* Scrollbar tổng */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+/* Track (nền scrollbar) */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Thanh trượt chính */
+::-webkit-scrollbar-thumb {
+  background: #999;
+  border-radius: 4px;
+}
+
+/* Hover thanh trượt */
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
 }

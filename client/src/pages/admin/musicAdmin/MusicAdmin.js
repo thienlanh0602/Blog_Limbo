@@ -1,14 +1,19 @@
-import React from "react";
-import { Typography } from "@mui/material";
-function MusicAdmin(){
-    return(
-
-        <Typography variant="h1" style={{ flexGrow: 1 }}>
-          Music admin
-        </Typography>
+import { SectionHeader } from '../../../components/admin/selectionHeader';
+import {
+  StyleButton, StyleTyp,
+} from '../../../components/admin/homepage';
 
 
-    );
+function MusicAdmin() {
+  return (
+    <>
+      <SectionHeader
+        title={<StyleTyp>Music</StyleTyp>}
+        action={<StyleButton>Thêm +</StyleButton>}
+      />
+    </>
+
+  );
 }
 
 export default MusicAdmin;

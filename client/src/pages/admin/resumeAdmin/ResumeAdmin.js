@@ -1,14 +1,17 @@
-import React from "react";
-import { Typography } from "@mui/material";
-function ResumeAdmin(){
-    return(
+import { SectionHeader } from '../../../components/admin/selectionHeader';
+import {
+  StyleButton, StyleTyp,
+} from '../../../components/admin/homepage';
 
-        <Typography variant="h1" style={{ flexGrow: 1 }}>
-          Resume admin
-        </Typography>
-
-
-    );
+function ResumeAdmin() {
+  return (
+    <>
+      <SectionHeader
+        title={<StyleTyp>Resume</StyleTyp>}
+        action={<StyleButton>Thêm +</StyleButton>}
+      />
+    </>
+  );
 }
 
 export default ResumeAdmin;

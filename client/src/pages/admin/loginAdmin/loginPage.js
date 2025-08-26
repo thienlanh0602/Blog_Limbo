@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Container, Typography, TextField, Button } from "@mui/material";
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom';
+import { StyleButtonLogin, TextFieldLogin, TextFieldLoginPw, TextFieldLoginUser } from "../../../components/admin/login";
+import { StyleTyp } from "../../../components/admin/login";
 const API_URL = process.env.REACT_APP_API_URL;
 
 
@@ -32,41 +34,25 @@ function loginPage() {
     };
 
     return (
-        <Container maxWidth="xs">
-            <Typography variant="h4" gutterBottom>Admin Login</Typography>
+        <Container maxWidth="xs" sx={{mt: 5}}>
+            <StyleTyp>
+                Admin Login
+            </StyleTyp>
             {error && <Typography color="error">{error}</Typography>}
-            <form onSubmit={handleSubmit}>
-                <TextField
-                    fullWidth
-                    label="Username"
-                    name="username"
+            <form  onSubmit={handleSubmit}>
+                <TextFieldLoginUser
                     value={formData.username}
                     onChange={handleChange}
-                    margin="normal"
-                    required
                 />
-                <TextField
-                    fullWidth
-                    label="Password"
-                    type="password"
-                    name="password"
+
+                <TextFieldLoginPw
                     value={formData.password}
                     onChange={handleChange}
-                    margin="normal"
-                    required
                 />
-                <Button type="submit" variant="contained" fullWidth sx={{
-                    backgroundColor: '#4efcd3',
-                    border: '2px solid black',
-                    borderRadius: 10,
-                    minWidth: 100,
-                    minHeight: 50,
-                    color: 'black',
-                }}>Đăng nhập</Button>
+
+                <StyleButtonLogin type="submit" fullWidth>Đăng nhập</StyleButtonLogin>
             </form>
         </Container>
-
-
     );
 }
 
