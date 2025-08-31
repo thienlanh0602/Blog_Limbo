@@ -167,3 +167,11 @@ a:visited {
 ::-webkit-scrollbar-thumb:hover {
   background: #666;
 }
+
+::selection {
+  /* background: #2196f3; */
+   background: #4DF4C8;
+  /* Xanh dương */
+  color: white;
+  /* Màu chữ */
+}
