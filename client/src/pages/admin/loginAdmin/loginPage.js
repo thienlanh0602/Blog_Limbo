@@ -34,7 +34,7 @@ function loginPage() {
     };
 
     return (
-        <Container maxWidth="xs" sx={{mt: 5}}>
+        <Container maxWidth="xs" sx={{ mt: { xs: 8, md: 5 }, px: { xs: 3, md: 2 } }}>
             <StyleTyp>
                 Admin Login
             </StyleTyp>

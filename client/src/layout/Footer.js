@@ -1,16 +1,14 @@
 import { Box, Typography, IconButton } from "@mui/material";
 import { useEffect, useState } from "react";
 
-import Icon_facebook from "../assets/footer/facebook.svg";
-import Icon_github from "../assets/footer/git.svg";
-import Icon_discord from "../assets/footer/discord.svg";
-import Icon_insta from "../assets/footer/insta.svg";
+import { STATIC_IMAGES } from '../utils/Staticimages';
+import { optimizeCloudinaryUrl } from '../utils/Cloudinaryhelper';
 
 const socialLinks = [
-  { href: "https://discord.gg/QVMKmE8d", icon: Icon_discord },
-  { href: "https://github.com/thienlanh0602", icon: Icon_github },
-  { href: "https://www.facebook.com/limbo.thien.lanh/", icon: Icon_facebook },
-  { href: "https://www.instagram.com/limbo._.l/", icon: Icon_insta },
+  { href: "https://discord.gg/QVMKmE8d", icon: optimizeCloudinaryUrl(STATIC_IMAGES.discord, 200) },
+  { href: "https://github.com/thienlanh0602", icon: optimizeCloudinaryUrl(STATIC_IMAGES.github, 200) },
+  { href: "https://www.facebook.com/limbo.thien.lanh/", icon:optimizeCloudinaryUrl(STATIC_IMAGES.facebook, 200) },
+  { href: "https://www.instagram.com/limbo._.l/", icon: optimizeCloudinaryUrl(STATIC_IMAGES.insta, 200) },
 ];
 
 function Footer() {
@@ -29,46 +27,53 @@ function Footer() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+
   return (
     <Box
       sx={{
         position: "fixed",
-        bottom: show ? 20 : -100,
+        bottom: show ? { xs: 12, md: 20 } : -120,
         left: "50%",
         transform: "translateX(-50%)",
-        px: 4,
-        py: 1,
-        borderRadius: "50px",
+        px: { xs: 2, sm: 3, md: 4 },
+        py: { xs: 1.5, md: 1 },
+        borderRadius: { xs: "30px", md: "50px" },
         border: "1px solid black",
         display: "flex",
+        flexDirection: { xs: "column", md: "row" },
         alignItems: "center",
-        justifyContent: "space-between",
-        width: "80%",
+        justifyContent: { xs: "center", md: "space-between" },
+        gap: { xs: 1, md: 0 },
+        width: { xs: "70%", sm: "85%", md: "80%" },
         maxWidth: 1000,
         zIndex: 1200,
         transition: "all 0.3s ease",
+        backgroundColor: "white",
       }}
     >
-      {/* Trái */}
-      <Typography sx={{ fontWeight: 200, fontSize: 12, }}>
+      <Typography sx={{ fontWeight: 200, fontSize: { xs: 10, sm: 12 }, order: { xs: 2, md: 0 } }}>
         © 2025 Limbo / ThienLanh
       </Typography>
 
-      {/* Giữa */}
-      <Box textAlign="center">
-        <Typography variant="caption" sx={{ fontWeight: 400, letterSpacing: 1, fontSize: 13 }}>
+      <Box
+        textAlign="center"
+        sx={{
+          display: { xs: "none", sm: "block" },
+          order: { xs: 0, md: 1 },
+        }}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 400, letterSpacing: 1, fontSize: { xs: 10, md: 13 } }}>
           FIGMA &nbsp; VISUALCODE
         </Typography>
-        <Typography variant="caption" sx={{ fontWeight: 400, letterSpacing: 1, fontSize: 13 }}>
+        <Typography variant="caption" sx={{ fontWeight: 400, letterSpacing: 1, fontSize: { xs: 10, md: 13 }, display: { xs: "block", md: "inline" } }}>
           &nbsp; BLENDER &nbsp; ILLUSTRATOR
         </Typography>
       </Box>
 
-      {/* Phải */}
-      <Box sx={{ display: "flex", gap: 0.4 }}>
-        {socialLinks.map((link, idx) => (
-          <IconButton key={idx} href={link.href} target="_blank">
-            <Box component="img" src={link.icon} sx={{ height: 22 }} />
+      <Box sx={{ display: "flex", gap: 0.4, order: { xs: 1, md: 2 } }}>
+        {socialLinks.map((link) => (
+          <IconButton key={link.href} href={link.href} target="_blank" sx={{ p: { xs: 0.5, md: 1 } }}>
+            <Box component="img" src={link.icon} sx={{ height: { xs: 18, md: 22 } }} />
           </IconButton>
         ))}
       </Box>

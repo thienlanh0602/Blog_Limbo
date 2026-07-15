@@ -1,23 +1,19 @@
-import React from "react";
-import { Box, Typography } from "@mui/material";
-import { StyleTypography_2 } from "../../../components/homepage/home";
+import { Box } from "@mui/material";
+import { commonSxDisplay, StyleTypography_Text, StyleTypography_Title } from "../../../components/homepage/home";
+import { optimizeCloudinaryUrl } from '../../../utils/Cloudinaryhelper';
 
-// ===================== Image Item =====================
 const ImageItem = ({ img }) => (
   <Box
     sx={{
-      flex: "0 0 33.33%", // mỗi ảnh chiếm 1/3
-      maxWidth: "33.33%",
       position: "relative",
       overflow: "hidden",
+      width: "100%",
     }}
   >
-    {/* Khung giữ tỷ lệ */}
-    <Box sx={{ width: "99%", paddingTop: "75%" }} />
-    {/* Ảnh fill khung */}
+    <Box sx={{ width: "100%", paddingTop: "100%" }} />
     <Box
       component="img"
-      src={`http://localhost:5000${img}`}
+      src={optimizeCloudinaryUrl(img, 800)}
       sx={{
         position: "absolute",
         top: 0,
@@ -30,44 +26,47 @@ const ImageItem = ({ img }) => (
   </Box>
 );
 
-// ===================== Main Component =====================
 const Nav3 = ({ item }) => {
   if (!item) return null;
 
   return (
     <Box
       sx={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
+        ...commonSxDisplay,
         flexDirection: "column",
-        gap: 4,
+        gap: { xs: 3, md: 4 },
+        width: '100%',
+        px: { xs: 2, sm: 3, md: 0 },
+        boxSizing: 'border-box',
       }}
     >
-      {/* Title */}
-      <Box textAlign="center">
-        <Typography fontWeight={800} fontSize={34} textTransform="uppercase">
+      <Box sx={{
+        ...commonSxDisplay,
+        flexDirection: 'column',
+      }} >
+        <StyleTypography_Title>
           {item.title}
-        </Typography>
-        <StyleTypography_2>{item.title_2}</StyleTypography_2>
+        </StyleTypography_Title>
+        <StyleTypography_Text>{item.title_2}</StyleTypography_Text>
       </Box>
 
-      {/* Image Grid */}
       {Array.isArray(item.image) && item.image.length > 0 && (
         <Box
           sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 4,
-            justifyContent: "center",
-            alignItems: "center",
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "1fr 1fr",
+              md: "1fr 1fr 1fr",
+            },
+            // gap: { xs: 2, sm: 3, md: 4 },
+            width: "100%",
+            maxWidth: "100%",
           }}
         >
-          <Box sx={{ display: "flex", width: "99.6vw" }}>
-            {item.image.map((img, idx) => (
-              <ImageItem key={idx} img={img} />
-            ))}
-          </Box>
+          {item.image.map((img) => (
+            <ImageItem key={img} img={img} />
+          ))}
         </Box>
       )}
     </Box>

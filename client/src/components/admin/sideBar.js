@@ -1,19 +1,24 @@
 import { Box, Button, Container } from "@mui/material"
+import { DRAWER_WIDTH } from "../../theme/breakpoints";
 
 const commonBorder = '2px solid black'
 const commonBoxShadow = '3px 3px 0px black'
 
-export const StyleContainer = ({ children, variant = 'container', sx = {}, ...props }) => (
+export const StyleContainer = ({ children, variant = 'container', isMobile = false, sx = {}, ...props }) => (
     <Container
         variant={variant}
+        disableGutters
         sx={{
-            width: 280,          
-            height: '100vh',
-            py: 8,
-            position: 'fixed',
+            width: DRAWER_WIDTH,
+            height: isMobile ? '100%' : '100vh',
+            py: { xs: 4, md: 8 },
+            position: isMobile ? 'relative' : 'fixed',
             top: 0,
             left: 0,
             borderRight: commonBorder,
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+            px: { xs: 2, md: 3 },
             ...sx
         }}
         {...props}
@@ -33,6 +38,7 @@ export const ButtonNav = ({ children, sx = {}, ...props }) => (
             boxShadow: commonBoxShadow,
             py: 0.8,
             fontWeight: 600,
+            fontSize: { xs: 14, md: 16 },
             ...sx
         }}
         {...props}

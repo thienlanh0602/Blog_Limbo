@@ -1,45 +1,27 @@
 import { AppBar, Box, Button, Container, Drawer, Toolbar, Typography, useMediaQuery, useTheme } from "@mui/material"
 
-
-// map
-
-
-// // boc header bang appbar
-// <StyleAppBar>
-//     {/* sau do boc bang toobar */}
-//     <StyleToolbar>
-//         {/* boc cac thanh phan bang container */}
-//         <StyleContainer>
-//             {/* logo */}
-//             <BoxLogo />
-//             {/* thanh phan nav */}
-//             <BoxNav />
-//             {/* dieu huong */}
-//             <ButtonImage />
-//         </StyleContainer>
-//     </StyleToolbar>
-// </StyleAppBar>
-
-
-// -------------------------------------------------------------
-export const StyleAppBar = ({
-    children,
-    position = 'fixed',
-    sx = {}, ...props }) => {
+export const StyleAppBar = ({ children, position = 'fixed', showHeader = true, scrolled = false, sx = {}, ...props }) => {
     return (
         <AppBar
             position={position}
-            sx={(theme) => ({
+            sx={{
+                top: { xs: 22, md: 35 },
+                left: "50%",
+                transform: showHeader
+                    ? "translateX(-50%) translateY(0)"
+                    : "translateX(-50%) translateY(-200%)",
+                width: { xs: "92%", sm: "85%", md: "80%" },
+                maxWidth: scrolled ? { xs: 94, sm: 110, md: 142 } : 1000,
+                borderRadius: { xs: "30px", md: "50px" },
+                border: "1px solid black",
+                boxShadow: "none",
+                backgroundColor: "#ffffff",
                 color: "black",
-                boxShadow: 'none',
-                borderBottom: 'none',
-                backgroundColor: '#ffffff',
-                [theme.breakpoints.down('ay')]: {
-                    backgroundColor: '#000000'
-                },
-
-            })} {...props} >
-
+                transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+                zIndex: 1200,
+                py: 0,
+                ...sx,
+            }} {...props}>
             {children}
         </AppBar>
     )
@@ -49,9 +31,11 @@ export const StyleToolbar = ({ children, sx = {}, ...props }) => {
     return (
         <Toolbar
             disableGutters
-            sx={() => ({
-
-            })} {...props}>
+            sx={{
+                minHeight: { xs: 42, sm: 48 },
+                ...sx
+            }}
+            {...props}>
             {children}
         </Toolbar>
     )
@@ -59,42 +43,42 @@ export const StyleToolbar = ({ children, sx = {}, ...props }) => {
 
 export const StyleContainer = ({ children, sx = {}, ...props }) => {
     const theme = useTheme();
-    const isDektop = useMediaQuery(theme.breakpoints.down('lg'));
-    const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-    const isTablet2 = useMediaQuery(theme.breakpoints.between('md', 'lg'));
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
     let maxWidth = 'lg';
-    if (isDektop) maxWidth = 'ay';
-    if (isTablet) maxWidth = 'sm';
-    if (isTablet2) maxWidth = 'md';
-    if (isMobile) maxWidth = 'xs';
+    if (isTablet) maxWidth = 'md';
+    if (isMobile) maxWidth = false;
 
     return (
         <Container
             maxWidth={maxWidth}
             disableGutters
-            sx={() => ({
+            sx={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                px: 5,
-            })} {...props}>
+                px: { xs: 2, sm: 3, md: 5 },
+                width: '100%',
+                cursor: "pointer",
+
+                ...sx,
+            }} {...props}>
             {children}
         </Container>
     )
 }
 
-//box logo
 export const BoxLogo = ({ children, sx = {}, ...props }) => {
     return (
         <Box
-            sx={() => ({
+            sx={{
                 display: 'flex',
                 alignItems: 'center',
                 textDecoration: 'none',
-                gap: 1
-            })}
+                gap: 1,
+                color: 'black'
+            }}
             {...props}
         >
             {children}
@@ -102,7 +86,6 @@ export const BoxLogo = ({ children, sx = {}, ...props }) => {
     )
 }
 
-// box element nav
 export const BoxNav = ({ children, sx = {}, ...props }) => {
     return (
         <Box
@@ -119,91 +102,112 @@ export const BoxNav = ({ children, sx = {}, ...props }) => {
     )
 }
 
-// element nav button 
 export const ButtonNav = ({ children, color = 'inherit', sx = {}, ...props }) => {
     return (
         <Button
             color={color}
             sx={{
                 display: 'flex',
-                fontSize: 16,
+                fontSize: { xs: 14, sm: 16 },
                 flexDirection: 'column',
                 textTransform: 'none',
                 px: 0,
                 justifyContent: 'flex-end',
                 width: '100%',
-                transition: 'all 0.3s ease',
+                transition: 'all 0s ease',
                 '&:hover': {
                     color: '#1fc3a1',
                 },
                 '&:active': {
                     color: '#1fc3a1',
                 },
-            }} {...props}>
+                ...sx,
+            }}
+            {...props}>
             {children}
         </Button>
     )
 }
 
-// button image sử dụng cho nhiều button 
-export const ButtonImage = ({ children, maxwith = 'lg', sx = {}, ...props }) => {
+export const ButtonImage = ({ children, sx = {}, ...props }) => {
     return (
         <Button
-            sx={() => ({
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={(e) => e.currentTarget.blur()}
+            sx={{
                 backgroundColor: '#4efcd3',
                 border: '1px solid black',
                 borderRadius: 0,
-                minWidth: 45,
-                minHeight: 25,
+                minWidth: { xs: 40, sm: 45 },
+                minHeight: { xs: 22, sm: 25 },
                 color: 'black',
                 boxShadow: '3px 3px 0px black',
 
+                WebkitTapHighlightColor: 'transparent',
+                WebkitTouchCallout: 'none',
+                userSelect: 'none',
+                "&:hover": { backgroundColor: "#4efcd3" },
+                "&:active": {
+                    backgroundColor: "#4efcd3",
+                    boxShadow: "1px 1px 0px black",
+                    transform: "translate(1px, 1px)",
+                },
+                ...sx,
+            }}
+            {...props} >
 
-            })} {...props}>
             {children}
         </Button>
     )
 }
 
-// image arrow
-export const BoxImage = ({ maxwith = 'lg', sx = {}, ...props }) => {
+export const BoxImage = ({ sx = {}, ...props }) => {
     return (
         <Box
-            sx={() => ({
+            sx={{
                 width: 10,
                 height: 10,
-            })} {...props} />
+                ...sx,
+            }} {...props} />
     )
 }
 
-// text limbo
-export const TypographyLogo = ({ fontStyle = 'bold', ...props }) => {
+export const TypographyLogo = ({ fontStyle = 'bold', sx = {}, ...props }) => {
     return (
         <Typography
             fontStyle={fontStyle}
             fontWeight={600}
+            sx={{ fontSize: { xs: 14, sm: 16 }, ...sx }}
             {...props} />
     )
 }
 
-// dieu chinh drawer 
-export const EditDrawer = ({ children, sx = {}, ...props }) => {
+export const EditDrawer = ({ children, sx = {}, onClose, ...props }) => {
+    const theme = useTheme();
+
+    const handleClose = (event, reason) => {
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+        if (onClose) onClose(event, reason);
+    };
+
     return (
         <Drawer
             anchor="right"
+            hideBackdrop={false}
             transitionDuration={0}
+            onClose={handleClose}
             PaperProps={{
                 sx: {
                     height: 'auto',
                     position: 'absolute',
-                    backgroundColor: '#000',
-                    color: '#000000',
                     backgroundColor: '#ffffff',
-                    boxShadow: 5,
-                    borderRadius: 5,
-                    top: 120,
-                    right: 40,
-                    px: 4,
+                    boxShadow: "3px 3px 0px black",
+                    border: "1px solid black",
+                    top: { xs: 74, sm: 100, md: 120 },
+                    right: { xs: 14, sm: 24, md: 40 },
+                    px: { xs: 2, sm: 3, md: 4 },
                     py: 2,
                     display: 'flex',
                     flexDirection: 'column',
@@ -211,9 +215,14 @@ export const EditDrawer = ({ children, sx = {}, ...props }) => {
                 },
             }}
             ModalProps={{
+                keepMounted: false,
+                disableScrollLock: true,
+                disableRestoreFocus: true,
+                disableEnforceFocus: true,
                 BackdropProps: {
                     sx: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.03)'
+                        backgroundColor: 'rgba(0, 0, 0, 0.07)',
+                        backdropFilter: 'blur(1.3px)'
                     },
                 },
             }}
@@ -226,8 +235,6 @@ export const EditDrawer = ({ children, sx = {}, ...props }) => {
             }}>
                 {children}
             </Box>
-
         </Drawer>
-
     )
 }

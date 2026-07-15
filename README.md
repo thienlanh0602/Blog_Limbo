@@ -23,3 +23,7 @@
 │   └── index.js
 
 └── README.md             # This file!
+git bash 
+if you standing in /blog_for_me/ else add /npm run dev
+___/blog_for_me/npm run dev
+-THANKS FOR READING-

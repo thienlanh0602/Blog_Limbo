@@ -1,77 +1,159 @@
-// sections/Nav1.jsx
-import { Box, Typography, Button } from "@mui/material";
-import { StyleTypography_1, StyleTypography_2, BoxImageHome } from "../../../components/homepage/home";
-import Arrow from "../../../assets/Arrow_1.svg";
-import SvgNav1 from "../../../assets/square_dashed.svg";
+import { Box, useTheme, Tooltip } from "@mui/material";
+import { BoxImageHome, commonSxDisplay } from "../../../components/homepage/home";
+import { STATIC_IMAGES } from '../../../utils/Staticimages';
+import { optimizeCloudinaryUrl } from '../../../utils/Cloudinaryhelper';
+import { TextTitle } from "../../../components/homepage/selections/component_1/TextTitle";
+import { breakpoints } from "../../../theme/breakpoints";
+import { ContextTag } from "../../../components/homepage/selections/component_1/ContextTag";
+import { Context } from "../../../components/homepage/selections/component_1/Context";
+import { ButtonLink } from "../../../components/homepage/selections/component_1/ButtonLink";
 
 export default function Nav1({ item }) {
+
+  const theme = useTheme();
+  const bp = breakpoints(theme);
+
   return (
     <Box
       sx={{
-        position: "relative",
-        display: "flex",
+        ...commonSxDisplay,
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         textAlign: "center",
         gap: 2,
+        position: "relative",
+        px: { xs: 2, md: 0 },
+        width: '100%',
+        pt: { xs: 34, sm: 14, md: 18 },
+        pb: { xs: 16},
       }}
     >
-      {/* Background SVG */}
       <Box
         component="img"
-        src={SvgNav1}
-        alt="decor"
+        src={optimizeCloudinaryUrl(STATIC_IMAGES.start_2, 300)}
+        alt="star decor large"
         sx={{
           position: "absolute",
-          left: "50%",
-          top: "50%",
-          transform: "translate(-50%, -50%)",
+          top: { xs: '45%', md: '28%' },
+          right: { xs: '20%', md: '30%' },
+          width: { xs: 28, md: 60 },
+          zIndex: 10, 
           pointerEvents: "none",
-          zIndex: 0,
-          opacity: 0.7,
-          maxWidth: "100%",
+
+          animation: "spinScaleLarge 4s infinite ease-in-out",
+
+          "@keyframes spinScaleLarge": {
+            "0%": {
+              transform: "scale(0) rotate(0deg)",
+              opacity: 0,
+            },
+            "15%": {
+              transform: "scale(1) rotate(180deg)",
+              opacity: 1,
+            },
+            "30%": {
+              transform: "scale(0.7) rotate(360deg)",
+              opacity: 1,
+            },
+            "45%": {
+              transform: "scale(0) rotate(540deg)",
+              opacity: 0,
+            },
+            "100%": {
+              transform: "scale(0) rotate(540deg)",
+              opacity: 0,
+            }
+          }
         }}
       />
 
-      {/* Title */}
-      <StyleTypography_1>{item.title}</StyleTypography_1>
-      <Typography
-        variant="h6"
+      <Box
+        component="img"
+        src={optimizeCloudinaryUrl(STATIC_IMAGES.start_1, 300)}
+        alt="star decor small"
         sx={{
-          fontWeight: 700,
-          textTransform: "uppercase",
-          color: "#4DF4C8",
-        }}
-      >
-        @ IM THIEN LANH
-      </Typography>
-      <StyleTypography_2>{item.title_2}</StyleTypography_2>
+          position: "absolute",
+          top: { xs: '48%', md: '36%' },
+          right: { xs: '75%', md: '70%' },
+          width: { xs: 40, md: 60 },
+          zIndex: 10,
+          pointerEvents: "none",
 
-      {/* Button */}
-      <Button
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={(e) => e.currentTarget.blur()}
-        sx={{
-          mt: 1,
-          minWidth: 150,
-          minHeight: 50,
-          borderRadius: 0,
-          fontSize: 16,
-          color: "black",
-          backgroundColor: "#4efcd3",
-          border: "2px solid black",
-          boxShadow: "3px 3px 0px black",
-          "&:hover": { backgroundColor: "#4efcd3" },
-          "&:active": {
-            backgroundColor: "#4efcd3",
-            boxShadow: "1px 1px 0px black",
-            transform: "translate(1px, 1px)",
-          },
+          animation: "spinScaleSmall 3s infinite ease-in-out",
+
+          "@keyframes spinScaleSmall": {
+            "0%": {
+              transform: "scale(0) rotate(0deg)",
+              opacity: 0,
+            },
+            "15%": {
+              transform: "scale(0.7) rotate(180deg)",
+              opacity: 1,
+            },
+            "30%": {
+              transform: "scale(0.5) rotate(360deg)",
+              opacity: 1,
+            },
+            "45%": {
+              transform: "scale(0) rotate(540deg)",
+              opacity: 0,
+            },
+            "100%": {
+              transform: "scale(0) rotate(540deg)",
+              opacity: 0,
+            }
+          }
         }}
-      >
-        <BoxImageHome component="img" src={Arrow} />
-      </Button>
+      />
+
+      <Box
+        component="img"
+        src={optimizeCloudinaryUrl(STATIC_IMAGES.nav_1, 1200)}
+        alt="decor"
+        sx={{
+          position: "absolute",
+          left: { xs: "50%", md: "50%" },
+          top: { xs: "40%", md: "20%" },
+          transform: "translateX(-50%)",
+          pointerEvents: "none",
+          zIndex: 0,
+          opacity: 0.7,
+          maxWidth: { xs: "100%", md: "100%" },
+          width: { xs: 280, sm: 400, md: "auto" },
+        }}
+      />
+
+      <TextTitle theme={theme} bp={bp}>{item.title}</TextTitle>
+      <ContextTag>
+        @ IM THIEN LANH
+      </ContextTag>
+
+      <Context theme={theme} bp={bp}>{item.title_2}</Context>
+
+      <Tooltip
+        title="Để nút vậy thôi chứ không nhấn được"
+        arrow
+        placement="top"
+        componentsProps={{
+          tooltip: {
+            sx: {
+              bgcolor: "black",
+              color: "white",
+              fontSize: 12,
+              border: "1px solid black",
+              boxShadow: "2px 2px 0px black",
+            },
+          },
+          arrow: {
+            sx: {
+              color: "black",
+            },
+          },
+        }} >
+
+        <ButtonLink>
+          <BoxImageHome component="img" src={optimizeCloudinaryUrl(STATIC_IMAGES.arrow, 30)} />
+        </ButtonLink>
+      </Tooltip>
     </Box>
   );
 }

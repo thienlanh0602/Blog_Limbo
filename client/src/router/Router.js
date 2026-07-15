@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 
 import Home from '../pages/homepage/Home';
 
@@ -21,13 +22,46 @@ import Layout from '../layout/Layout';
 import LoginPage from '../pages/admin/loginAdmin/loginPage';
 import ProtectedRoute from '../router/ProtectedRoute/protectedAdmin';
 import PublicRoute from '../router/ProtectedRoute/publicAdmin';
+import IntroScreen from '../utils/IntroScreen';
+
+const INTRO_ROUTES = {
+  '/': 'Hey',
+  '/music': 'Music',
+  '/image': 'Image',
+};
+
+function IntroManager() {
+  const location = useLocation();
+  const [introText, setIntroText] = useState(null);
+  const prevPathRef = useRef(null);
+
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const matchedText = INTRO_ROUTES[currentPath];
+
+    const shouldSkip = sessionStorage.getItem('skipIntro') === '1';
+    if (shouldSkip) {
+      sessionStorage.removeItem('skipIntro');
+    }
+
+    if (matchedText && currentPath !== prevPathRef.current && !shouldSkip) {
+      setIntroText(matchedText);
+    }
+
+    prevPathRef.current = currentPath;
+  }, [location.pathname]);
+
+  if (!introText) return null;
+
+  return <IntroScreen text={introText} onFinish={() => setIntroText(null)} />;
+}
 
 function Routers() {
   return (
     <Router>
+      <IntroManager />
 
       <Routes >
-        {/* path này của trang chủ */}
         <Route path='/' element={<Layout />}>
           <Route index element={<Home />} />
           <Route path='resume' element={< Resume />} />
@@ -37,7 +71,6 @@ function Routers() {
           <Route path='diy' element={<DIY />} />
         </Route>
 
-        {/* path này của sidebar admin */}
         <Route path='/admin' element={< AdminLayout />} >
           <Route index element={
             <ProtectedRoute>
@@ -52,7 +85,6 @@ function Routers() {
 
         </Route>
 
-        {/* này của login admin */}
         <Route path='/login' element={
           <PublicRoute>
             <LoginPage />

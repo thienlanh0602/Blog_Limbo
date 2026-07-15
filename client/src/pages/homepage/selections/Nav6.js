@@ -1,26 +1,16 @@
-import React, { useRef, useState } from "react";
-import { Box, Typography, CardMedia, Slider, IconButton, Button } from "@mui/material";
-import Play from "../../../assets/play.svg";
-import Pause from "../../../assets/pause.svg";
-import Repeat from "../../../assets/repeat.svg";
-import Arrow from "../../../assets/Arrow_1.svg";
+import React, { useState, useEffect, useRef } from "react";
+import { Box, Typography, CardMedia, Button, Skeleton } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { STATIC_IMAGES } from '../../../utils/Staticimages';
+import { optimizeCloudinaryUrl } from '../../../utils/Cloudinaryhelper';
+import { commonSxDisplay } from "../../../components/homepage/home";
+// Import các hàm API của bạn
+import { getPlaylists, getPlaylistDetail } from '../../../api/playlistAPI';
 
-
-import Audio from "../../../assets/music/no-way-back.mp3";
-
-// ===================== Helpers =====================
-const formatTime = (time) => {
-  if (!time || isNaN(time)) return "00:00";
-  const minutes = Math.floor(time / 60);
-  const seconds = Math.floor(time % 60);
-  return `${minutes < 10 ? "0" + minutes : minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
-};
-
-// Highlight chữ "âm nhạc"
 const formatTextWithHighlight = (text) => {
-  if (!text.includes("âm nhạc")) return text;
-
+  if (!text || !text.includes("âm nhạc")) return text || "";
   const [before, after] = text.split("âm nhạc");
+
   return (
     <>
       {before.split(".").map((part, idx, arr) => (
@@ -34,137 +24,133 @@ const formatTextWithHighlight = (text) => {
         âm nhạc
       </Box>
       {" "}
-      {after?.split(".").map((part, idx, arr) => (
-        <React.Fragment key={idx}>
-          {part.trim()}
-          {idx < arr.length - 1 && <br />}
-        </React.Fragment>
-      ))}
+      <Box component="span">
+        {after?.split(".").map((part, idx, arr) => (
+          <React.Fragment key={idx}>
+            {part.trim()}
+            {idx < arr.length - 1 && <br />}
+          </React.Fragment>
+        ))}
+      </Box>
     </>
   );
 };
 
-// ===================== Audio Player =====================
-const AudioPlayer = ({ audioRef, isPlaying, togglePlay, progress, duration, handleSeek, ended }) => (
-  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: 300, gap: 1 }}>
-    {/* Time + Play/Pause */}
-    <Box sx={{ display: "flex", alignItems: "flex-end", width: "100%" }}>
-      <Typography sx={{ fontWeight: 300, fontSize: 12, flex: 1, textAlign: "left" }}>
-        {formatTime(progress)}
-      </Typography>
-
-      <IconButton
-        onClick={togglePlay}
-        disableRipple
-        sx={{
-          p: 0,
-          width: 36,
-          height: 26,
-          borderRadius: "9999px",
-          border: "1px solid black",
-          backgroundColor: "white",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          mx: 1,
-          "&:hover": { backgroundColor: "#f5f5f5" },
-        }}
-      >
-        <Box component="img" src={ended ? Repeat : isPlaying ? Pause : Play} sx={{ width: 8, height: 8 }} />
-      </IconButton>
-
-      <Typography sx={{ fontWeight: 300, fontSize: 12, flex: 1, textAlign: "right" }}>
-        {formatTime(duration)}
-      </Typography>
-    </Box>
-
-    {/* Progress Slider */}
-    <Slider
-      value={progress}
-      min={0}
-      max={duration || 0}
-      onChangeCommitted={handleSeek}
-      sx={{
-        p: 0,
-        height: 8,
-        color: "black",
-        "& .MuiSlider-rail": {
-          backgroundColor: "transparent",
-          border: "1px solid black",
-          opacity: 1,
-        },
-        "& .MuiSlider-track": {
-          backgroundColor: "#4efcd3",
-          minWidth: "8px",
-        },
-        "& .MuiSlider-thumb": { display: "none" },
-      }}
-    />
-  </Box>
-);
-
-// ===================== Main Component =====================
 const Nav6 = ({ item }) => {
+  const navigate = useNavigate();
   const audioRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [ended, setEnded] = useState(false);
 
-  const togglePlay = () => {
+  const [loading, setLoading] = useState(true);
+  const [playlistName, setPlaylistName] = useState("PLAYLIST");
+  const [playlistCover, setPlaylistCover] = useState(null);
+  const [playlistDescription, setPlaylistDescription] = useState("");
+
+  const [randomTrack, setRandomTrack] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    const fetchRandomTrackFromPlaylist = async () => {
+      try {
+        const res = await getPlaylists();
+        let firstPlaylist = null;
+
+        if (res && res.success && res.data) {
+          firstPlaylist = Array.isArray(res.data) ? res.data[0] : res.data;
+        } else if (Array.isArray(res) && res.length > 0) {
+          firstPlaylist = res[0];
+        }
+
+        if (firstPlaylist) {
+          setPlaylistName(firstPlaylist.name || "PLAYLIST");
+          setPlaylistCover(firstPlaylist.thumbnail);
+          // Lưu mô tả ban đầu nếu có sẵn từ API list
+          setPlaylistDescription(firstPlaylist.description || "");
+
+          let tracks = firstPlaylist.tracks || [];
+          if (tracks.length === 0 || typeof tracks[0] !== 'object') {
+            const detailRes = await getPlaylistDetail(firstPlaylist._id);
+            const detailedData = detailRes?.data || detailRes;
+            tracks = detailedData?.tracks || [];
+
+            if (detailedData?.description) {
+              setPlaylistDescription(detailedData.description);
+            }
+          }
+
+          if (tracks.length > 0) {
+            const randomIndex = Math.floor(Math.random() * tracks.length);
+            setRandomTrack(tracks[randomIndex]);
+          }
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy bài hát ngẫu nhiên tại Nav6:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRandomTrackFromPlaylist();
+  }, []);
+
+  const handleTogglePlay = () => {
     if (!audioRef.current) return;
 
-    if (ended) {
-      // nếu đã hết bài -> phát lại từ đầu
-      audioRef.current.currentTime = 0;
-      audioRef.current.play();
-      setEnded(false);
-      setIsPlaying(true);
-    } else if (isPlaying) {
+    if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const handleSeek = (_, value) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = value;
-      setProgress(value);
+      audioRef.current.play()
+        .then(() => setIsPlaying(true))
+        .catch(err => console.log("Lỗi phát nhạc:", err));
     }
   };
 
   return (
     <Box
       sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        ...commonSxDisplay,
         flexDirection: "column",
-        gap: 12,
-        p: 4,
+        gap: { xs: 6, sm: 8, md: 12 },
+        p: { xs: 2, sm: 3, md: 4 },
+        mb: { xs: 24, sm: 18, md: 20 },
         maxWidth: 700,
+        width: '100%',
         mx: "auto",
+        boxSizing: 'border-box',
       }}
     >
-      {/* Nội dung text */}
-      <Typography sx={{ fontWeight: 200, fontSize: 34, textTransform: 'uppercase' }}>
-        {formatTextWithHighlight(item.title)}
+      {randomTrack?.cloudinaryUrl && (
+        <audio
+          ref={audioRef}
+          src={randomTrack.cloudinaryUrl}
+          crossOrigin="anonymous"
+          onEnded={() => setIsPlaying(false)}
+        />
+      )}
+
+      <Typography
+        sx={{
+          fontWeight: 200,
+          fontSize: { xs: 20, sm: 26, md: 34 },
+          textTransform: 'uppercase',
+          px: { xs: 1, md: 0 },
+          lineHeight: 1.3,
+        }}
+      >
+        {formatTextWithHighlight(item?.title)}
         <Button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={(e) => e.currentTarget.blur()}
+          onClick={() => navigate("/music")}
           sx={{
-            minWidth: 36,
-            minHeight: 24,
+            minWidth: { xs: 32, sm: 34, md: 36 },
+            minHeight: { xs: 20, sm: 22, md: 24 },
             mb: 1,
-            ml: 2,
+            ml: { xs: 1, sm: 1.5, md: 2 },
             borderRadius: 0,
             color: "black",
             backgroundColor: "#4efcd3",
             border: "1px solid black",
             boxShadow: "2px 2px 0px black",
+            verticalAlign: "middle",
             "&:hover": { backgroundColor: "#4efcd3" },
             "&:active": {
               backgroundColor: "#4efcd3",
@@ -173,73 +159,176 @@ const Nav6 = ({ item }) => {
             },
           }}
         >
-
-          <Box sx={() => ({
-            width: 10,
-            height: 10,
-          })} component="img" src={Arrow} />
+          <Box sx={{ width: 10, height: 10 }} component="img" src={optimizeCloudinaryUrl(STATIC_IMAGES.arrow, 30)} />
         </Button>
       </Typography>
 
-      {/* Cover + Player */}
-      {Array.isArray(item.image) && item.image.length > 0 && (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 4 }}>
-          {/* Cover Image */}
-          <Box
-            sx={{
-              height: 200,
-              width: 260,
-              backgroundColor: "#4efcd3",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "3px 3px 0px black",
-              border: "1px solid black",
-            }}
-          >
-            <CardMedia
-              component="img"
-              src={`http://localhost:5000${item.image[0]}`}
-              sx={{ width: "100%", maxWidth: "150px", height: "auto" }}
-            />
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: { xs: 2, sm: 4, md: 6 },
+          flexDirection: { xs: 'column', sm: 'column', md: 'row' },
+          width: '100%',
+          backgroundColor: "#4efcd3",
+          border: "1px solid black",
+          height: { xs: 'auto', sm: 'auto', md: 260 },
+          minHeight: { xs: 440, sm: 400, md: 'auto' },
+          borderRadius: 8,
+          p: { xs: 6, md: 0 },
+          boxSizing: 'border-box'
+        }}
+      >
+        <Box
+          sx={{
+            height: { xs: 180, sm: 200, md: 200 },
+            width: { xs: "100%", sm: 200, md: 260 },
+            maxWidth: 240,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {loading ? (
+            <Skeleton variant="rectangular" width={220} height={190} sx={{ borderRadius: '16px', ml: { xs: 0, md: 5 } }} />
+          ) : (
+            (playlistCover || item?.image?.[0]) && (
+              <CardMedia
+                component="img"
+                src={optimizeCloudinaryUrl(playlistCover || item.image[0], 400)}
+                sx={{
+                  boxShadow: "3px 3px 0px black",
+                  borderRadius: '16px',
+                  width: "100%",  
+                  maxWidth: "220px",
+                  height: "190px",
+                  objectFit: "cover",
+                  border: "1px solid black",
+                  ml: { xs: 0, md: 5 },
+                }}
+              />
+            )
+          )}
+        </Box>
+
+        <Box
+          display="flex"
+          flexDirection="column"
+          alignItems={{ xs: "center", md: "flex-start" }}
+          gap={2}
+          width={{ xs: '100%', md: 'auto' }}
+          sx={{ mt: { xs: 1, md: 0 }, minWidth: 0, pr: { md: 4 } }}
+        >
+          <Box textAlign={{ xs: 'center', md: 'left' }} sx={{ width: '100%', minWidth: 0 }}>
+            <Typography noWrap sx={{ fontWeight: 700, fontSize: { xs: 20, sm: 24, md: 34 } }}>
+              {loading ? <Skeleton width={180} /> : playlistName}
+            </Typography>
+
+            <Typography
+              sx={{
+                fontSize: { xs: 12, sm: 13 },
+                color: "rgba(0, 0, 0, 0.6)",
+                mt: 0.5,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: 1.4,
+                maxWidth: { xs: 280, sm: 350, md: 350 },
+                mx: { xs: 'auto', md: 0 }
+              }}
+            >
+              {loading ? <Skeleton width="100%" /> : (playlistDescription || "Chưa có mô tả cho playlist này.")}
+            </Typography>
+
+            {randomTrack && !loading && (
+              <Typography
+                noWrap
+                sx={{
+                  fontWeight: 600,
+                  fontSize: 13,
+                  color: "rgba(0, 0, 0, 0.8)",
+                  mt: 1.5,
+                  maxWidth: { xs: 270, sm: 300, md: 320 },
+                  textAlign: { xs: 'center', md: 'left' },
+                  mx: { xs: 'auto', md: 0 }
+                }}
+              >
+                <span style={{ fontWeight: 400 }}>{randomTrack.title} - {randomTrack.artist}</span>
+              </Typography>
+            )}
           </Box>
 
-          {/* Song Info + Player */}
-          <Box display="flex" flexDirection="column" alignItems="flex-start" gap={8}>
-            <Box>
-              <Typography sx={{ fontWeight: 700, fontSize: 34, textAlign: "left" }}>
-                NO WAY BACK
-              </Typography>
-              <Typography sx={{ fontWeight: 300, fontSize: 16, textAlign: "left" }}>
-                Lil Wuyn (feat. B-Wine)
-              </Typography>
-            </Box>
+          <Box display="flex" alignItems="center" gap={2} sx={{ mt: 0.5 }}>
+            <Button
+              onClick={handleTogglePlay}
+              variant="contained"
+              disabled={!randomTrack}
+              disableRipple
+              sx={{
+                backgroundColor: "black",
+                color: "#4efcd3",
+                borderRadius: "20px",
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                width: { xs: 110, sm: 120 },
+                flexShrink: 0,
+                transition: "all 0.2s ease",
 
-            {/* Audio Element */}
-            <audio
-              ref={audioRef}
-              src={Audio}
-              onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-              onTimeUpdate={() => setProgress(audioRef.current?.currentTime || 0)}
-              onEnded={() => {
-                setIsPlaying(false);
-                setEnded(true); // khi hết bài -> bật trạng thái repeat
+                "&:focus, &:focus-within": {
+                  backgroundColor: "black !important",
+                  color: "#4efcd3 !important",
+                },
+
+                "&.MuiButton-contained": {
+                  backgroundColor: "black",
+                  color: "#4efcd3",
+                },
+
+                "&:hover": {
+                  backgroundColor: "rgba(0,0,0,0.8) !important",
+                  color: "#4efcd3 !important"
+                },
+
+                "&:active": {
+                  backgroundColor: "black !important",
+                  color: "#4efcd3 !important"
+                },
+
+                "&.Mui-focusVisible": {
+                  backgroundColor: "black !important",
+                  color: "#4efcd3 !important"
+                }
               }}
-            />
-
-            {/* Player */}
-            <AudioPlayer
-              audioRef={audioRef}
-              isPlaying={isPlaying}
-              togglePlay={togglePlay}
-              progress={progress}
-              duration={duration}
-              handleSeek={handleSeek}
-              ended={ended}
-            />
+            >
+              {isPlaying ? "Dừng" : "Nghe"}
+            </Button>
+            <Button
+              onClick={() => navigate("/music")}
+              variant="outlined"
+              sx={{
+                borderColor: "black",
+                color: "black",
+                borderRadius: "20px",
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                flexShrink: 0,
+                "&:hover": {
+                  borderColor: "black",
+                  backgroundColor: "rgba(0,0,0,0.05)"
+                }
+              }}
+            >
+              Xem tất cả
+            </Button>
           </Box>
         </Box>
-      )}
+      </Box>
     </Box>
   );
 };

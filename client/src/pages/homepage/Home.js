@@ -10,7 +10,6 @@ import Nav3 from './selections/Nav3';
 import Nav4 from './selections/Nav4';
 import Nav5 from './selections/Nav5';
 import Nav6 from './selections/Nav6';
-
 function Home() {
   const [data, setData] = useState([])
   useEffect(() => {
@@ -18,9 +17,9 @@ function Home() {
       try {
         const res = await getHomepage();
 
-        const sorted = [...res].sort((a, b) => {
+        const sorted = res.toSorted((a, b) => {
           const getNumber = (str) => {
-            const match = str?.match(/\d+/); // Lấy số trong 'nav_1'
+            const match = str?.match(/\d+/);
             return match ? parseInt(match[0], 10) : 0;
           };
 
@@ -34,61 +33,84 @@ function Home() {
     fetchData();
   }, []);
 
-
-  // useEffect(() => {
-  //   AOS.init({
-  //     duration: 1000,
-  //     once: true,
-  //   });
-  // }, [])
-
   let renderedNav4 = false;
   let renderedNav5 = false;
-
 
   return (
     <>
       <Box sx={{
-        display: 'grid', rowGap: 30,
+        display: 'grid',
+        rowGap: { xs: 20, sm: 24, md: 30 },
+        width: '100%',
+        maxWidth: '100vw',
+        overflowX: 'hidden',
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          opacity: 0.08,
+          height: 1000,
+          backgroundImage: `radial-gradient(circle, rgba(0,0,0,.35) 1.6px, transparent 1px)`,
+          backgroundSize: "10px 10px",
+
+        },
       }}>
-        {data.map((item, index) => {
+        {data.map((item) => {
           switch (item.type) {
             case 'nav_1':
               return (
-                <Nav1 key={index} item={item} />
+                <Nav1 key={item._id} item={item} />
 
               );
 
             case 'nav_2':
               return (
-                <Nav2 key={index} item={item} />
+                <Nav2 key={item._id} item={item} />
               );
 
             case 'nav_3':
               return (
-
-                <Nav3 key={index} item={item} />
+                <Nav3 key={item._id} item={item} />
               );
 
-            case 'nav_4':
+            case 'nav_4_header':
               if (!renderedNav4) {
                 renderedNav4 = true;
-                const nav4Items = data.filter((i) => i.type === "nav_4");
-                return <Nav4 key="nav_4" items={nav4Items} />;
+
+                const nav4Header = data.find(
+                  item => item.type === "nav_4_header"
+                );
+
+                const nav4Cards = data.filter(
+                  item => item.type === "nav_4_card"
+                ).sort(
+                  (a, b) =>
+                    new Date(a.createdAt) - new Date(b.createdAt)
+                );;
+
+                return (
+                  <Nav4
+                    key="nav_4"
+                    header={nav4Header}
+                    cards={nav4Cards}
+                  />
+                );
               }
               return null;
 
-            case 'nav_5':
+
+            case 'nav_5_header':
               if (!renderedNav5) {
                 renderedNav5 = true;
-                const nav5Items = data.filter((i) => i.type === "nav_5");
-                return <Nav5 key="nav_5" items={nav5Items} />;
+                const nav5Header = data.find((i) => i.type === "nav_5_header");
+                const nav5Items = data.filter((i) => i.type === "nav_5_item");
+                return <Nav5 key="nav_5" header={nav5Header} items={nav5Items} />;
               }
               return null;
-
             case 'nav_6':
               return (
-                <Nav6 key={index} item={item} />
+                <Nav6 key={item._id} item={item} />
               )
             default:
               return null;

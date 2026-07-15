@@ -27,12 +27,10 @@ import {
     StyleTextField, StyleTyp,
     TypTextField
 } from '../../../components/admin/homepage';
-import { ReactComponent as IconMenu } from '../../../assets/icon_menu.svg'
-
-
 import { SectionHeader } from '../../../components/admin/selectionHeader';
 
-const HomepageAdmin = () => {
+import { STATIC_IMAGES } from '../../../utils/Staticimages';
+const HomepageAdmin = () => { 
 
     // lấy bài viết
     const [getAdmin, setAdmin] = useState([]);
@@ -42,7 +40,7 @@ const HomepageAdmin = () => {
                 const res = await getHomepageAdmin();
 
                 // Sắp xếp theo type (ví dụ: nav_1, nav_2, nav_3,...)
-                const sorted = [...res].sort((a, b) => {
+                const sorted = res.toSorted((a, b) => {
                     const getNumber = (str) => {
                         const match = str?.match(/\d+/); // Lấy số trong 'nav_1'
                         return match ? parseInt(match[0], 10) : 0;
@@ -105,7 +103,7 @@ const HomepageAdmin = () => {
                 const updated = [list, ...prev];
 
                 // Sắp xếp
-                const sorted = [...updated].sort((a, b) => {
+                const sorted = updated.toSorted((a, b) => {
                     const getNumber = (str) => {
                         const match = str?.match(/\d+/);
                         return match ? parseInt(match[0], 10) : 0;
@@ -120,6 +118,8 @@ const HomepageAdmin = () => {
             setOpenAdd(false);
             handleMessage('Thêm Thành Công');
             setOpenSnackbar(true);
+            setCreatePost({ type: 'nav_', title: '', title_2: '', image: [] });
+            setimageReviewAdd(null);
 
         } catch (error) {
             console.error('Thêm thất bại', error);
@@ -131,6 +131,7 @@ const HomepageAdmin = () => {
     const [editItem, setEditItem] = useState({});
     const [imageReviewUpdate, setImageReviewUpdate] = useState([]);
     const [imageFiles, setImageFiles] = useState([]);
+    const [removedImages, setRemovedImages] = useState([]);
     // xử lý trạng thái thông báo
     const [openSnackbar, setOpenSnackbar] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -145,33 +146,35 @@ const HomepageAdmin = () => {
     }
 
     //handle del img while del img
-    const handleDelImg = (index) => {
-
+    const handleDelImg = (index, url) => {
         setImageReviewUpdate(prev => {
             const update = prev.filter((_, i) => i !== index);
-            return update.length === 0 ? null : update
-        })
+            return update.length === 0 ? [] : update;
+        });
 
         setEditItem(prev => {
-            const updatedImages = prev.existingImages.filter((_, i) => i !== index);
+            const isExistingImage = prev.existingImages?.includes(url);
+            if (isExistingImage) {
+                setRemovedImages(r => [...r, url]);
+            }
+            const updatedImages = (prev.existingImages || []).filter(imgUrl => imgUrl !== url);
             return {
                 ...prev,
                 existingImages: updatedImages
             };
         });
-
     }
+
     // xử lý cho form chỉnh sửa
     const handleEdit = (item) => {
-
         setEditItem({ ...item, existingImages: item.image });
-        // xử lý ảnh khi có và không
         if (Array.isArray(item.image) && item.image.length > 0) {
-            setImageReviewUpdate(item.image.map(img => `http://localhost:5000${img}`));
+            setImageReviewUpdate(item.image);
         } else {
             setImageReviewUpdate([]);
         }
         setImageFiles([]);
+        setRemovedImages([]);
         setOpen(true);
     }
 
@@ -204,10 +207,14 @@ const HomepageAdmin = () => {
                     formData.append('image', file);
                 });
             }
+            if (removedImages.length) {
+                removedImages.forEach(url => {
+                    formData.append('removedImages[]', url);
+                });
+            }
 
             const update = await updateHomepageAdmin(editItem._id, formData);
 
-            // cập nhật lại new list
             const newlist = getAdmin.map(item =>
                 item._id === update._id ? update : item
             );
@@ -217,6 +224,7 @@ const HomepageAdmin = () => {
             setOpenSnackbar(true);
             setImageFiles([]);
             setImageReviewUpdate([]);
+            setRemovedImages([]);
         } catch (error) {
             console.error('Cập nhật thất bại', error);
         }
@@ -251,7 +259,8 @@ const HomepageAdmin = () => {
     }
 
     const handleCloseDialog = () => {
-        setimageReviewAdd('');
+        setimageReviewAdd(null);
+        setCreatePost({ type: 'nav_', title: '', title_2: '', image: [] });
         setOpenAdd(false);
     };
 
@@ -264,7 +273,7 @@ const HomepageAdmin = () => {
 
             {/* mở nút thêm title n image  */}
             <StyleDailog open={openAdd}
-                onClose={() => { setOpenAdd(true) }}
+                onClose={handleCloseDialog}
             >
                 <StyleContainerDailog >
                     <DialogTitle> Thêm bài viết</DialogTitle>
@@ -312,7 +321,7 @@ const HomepageAdmin = () => {
                             {Array.isArray(imageReviewAdd) && imageReviewAdd.length > 0 ? (
                                 <>
                                     {imageReviewAdd.map((url, index) => (
-                                        <Box key={index} sx={{ position: 'relative' }}>
+                                        <Box key={url || index} sx={{ position: 'relative' }}>
                                             <ButtonImgUpload
                                                 onClick={() => {
                                                     setimageReviewAdd((prev) =>
@@ -321,7 +330,7 @@ const HomepageAdmin = () => {
                                                 }}>
                                                 ✕
                                             </ButtonImgUpload>
-                                            <ImgStyle key={index} src={url} alt={`Preview ${index}`} />
+                                            <ImgStyle src={url} alt={`Preview ${index}`} />
                                         </Box>
                                     ))}
 
@@ -387,7 +396,7 @@ const HomepageAdmin = () => {
                                 {item.image && item.image.length === 1 && (
                                     <Box
                                         component="img"
-                                        src={`http://localhost:5000${item.image[0]}`}
+                                        src={item.image[0]}
                                         alt="image-0"
                                         sx={{
                                             width: '30%',
@@ -408,7 +417,7 @@ const HomepageAdmin = () => {
                                     >
                                         {item.image.slice(0, 3).map((img, idx, arr) => (
                                             <Box
-                                                key={idx}
+                                                key={img}
                                                 sx={{
                                                     borderRight: idx !== arr.length - 1 ? '2px solid black' : 'none',
                                                     display: 'flex',
@@ -418,7 +427,7 @@ const HomepageAdmin = () => {
                                             >
                                                 <Box
                                                     component="img"
-                                                    src={`http://localhost:5000${img}`}
+                                                    src={img}
                                                     alt={`image-${idx}`}
                                                     sx={{
                                                         width: item.image.length !== 1 ? '60%' : 'auto',
@@ -456,7 +465,7 @@ const HomepageAdmin = () => {
                                 >
                                     <Typography fontWeight={600}>{item.type}</Typography>
                                     <ButtonMenu onClick={(e) => handleClickButton(e, item)}>
-                                        <IconMenu style={{ height: 12, width: 12 }} />
+                                        <Box sx={{ height: 12, width: 12 }} component='img' src={STATIC_IMAGES.menu_2} />
                                     </ButtonMenu>
                                 </Box>
 
@@ -508,13 +517,13 @@ const HomepageAdmin = () => {
                             {Array.isArray(imageReviewUpdate) && imageReviewUpdate.length > 0 ? (
                                 <>
                                     {imageReviewUpdate.map((url, index) => (
-                                        <Box key={index} sx={{ position: 'relative' }}>
+                                        <Box key={url} sx={{ position: 'relative' }}>
                                             <ButtonImgUpload onClick={() => {
-                                                handleDelImg(index)
+                                                handleDelImg(index, url)
                                             }}>
                                                 ✕
                                             </ButtonImgUpload>
-                                            <ImgStyle key={index} src={url} alt={`Preview ${index}`} />
+                                            <ImgStyle key={url} src={url} alt={`Preview ${index}`} />
                                         </Box>
                                     ))}
                                     <BoxImgMore>
@@ -563,9 +572,9 @@ const HomepageAdmin = () => {
                 onClose={() => setOpenDailogDel(false)}
                 PaperProps={{
                     sx: {
-                        boxShadow: 'none', // Tắt shadow
-                        border: '2px solid black', // (tùy chọn) thay bằng viền
-                        borderRadius: '0px', // (tùy chọn)
+                        boxShadow: 'none',
+                        border: '2px solid black',
+                        borderRadius: '0px',
                     },
                 }}
             >

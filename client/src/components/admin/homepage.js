@@ -3,14 +3,15 @@ import { Box, Button, Card, Container, Dialog, DialogContent, Menu, MenuItem, Te
 
 // ======= Homepage title =======
 
-export const BoxHomepage = ({ children, sx = {}, ...props }) => {
+const BoxHomepage = ({ children, sx = {}, ...props }) => {
     return (
         <Box
             display={'flex'}
             flexWrap={'wrap'}
             gap={2}
-            my={4}
-            mx={5}
+            my={{ xs: 2, md: 4 }}
+            mx={{ xs: 0, sm: 2, md: 5 }}
+            sx={sx}
             {...props}>
             {children}
         </Box >
@@ -375,12 +376,12 @@ export const StyleCard = ({ children, sx = {}, ...props }) => {
     return (
         <Card
             sx={{
-                width: 336,
+                width: { xs: '100%', sm: 300, md: 336 },
+                maxWidth: 336,
                 border: '2px solid black',
                 boxShadow: '3px 3px black',
                 borderRadius: 0,
-
-                // boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                ...sx,
             }}{...props}>
             {children}
         </Card >
@@ -395,10 +396,11 @@ export const StyleCardContainer = ({ children, sx = {}, ...props }) => {
             sx={{
                 display: 'flex',
                 flexWrap: 'wrap',
-                gap: 6,
+                gap: { xs: 3, md: 6 },
                 width: '100%',
                 justifyContent: 'center',
-                py: 5
+                py: { xs: 3, md: 5 },
+                ...sx,
             }}
             {...props}
         >
