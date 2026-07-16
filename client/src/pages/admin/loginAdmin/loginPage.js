@@ -7,7 +7,7 @@ import { StyleTyp } from "../../../components/admin/login";
 const API_URL = process.env.REACT_APP_API_URL;
 
 
-function loginPage() {
+function LoginPage() {
 
     const [formData, setFormData] = useState({ username: '', password: '' })
     const [error, setError] = useState('');
@@ -56,4 +56,4 @@ function loginPage() {
     );
 }
 
-export default loginPage;
+export default LoginPage;
