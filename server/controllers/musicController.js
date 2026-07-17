@@ -4,7 +4,7 @@ const youtubeDl = require('youtube-dl-exec');
 const ffmpeg = require('fluent-ffmpeg');
 const cloudinary = require('../config/cloudinary');
 const Music = require('../models/Music');
-const Playlist = require('../models/Playlist'); 
+const Playlist = require('../models/Playlist');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -39,6 +39,12 @@ const getVideoMetadata = async (youtubeUrl) => {
     }
 };
 
+if (fs.existsSync(cookiesPath)) {
+    console.log(`[SYSTEM CHECK] >>> Đã tìm thấy file cookies tại đường dẫn: ${cookiesPath} (Hợp lệ!)`);
+} else {
+    console.error(`[SYSTEM CHECK] >>> CẢNH BÁO: Không tìm thấy file cookies tại: ${cookiesPath}`);
+}
+
 // ==========================================
 // 2. HÀM STREAM & CONVERT (ĐÃ SỬA FLAG COOKIES)
 // ==========================================
@@ -72,7 +78,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
         try {
             console.log("\n[STREAM] --- BẮT ĐẦU QUÁ TRÌNH TẢI & CONVERT NHẠC ---");
-            
+
             // BƯỚC 1: Lấy Metadata
             console.log("[STREAM] Bước 1: Đang lấy thông tin video...");
             const metaData = await getVideoMetadata(youtubeUrl);
@@ -85,7 +91,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             // BƯỚC 2: Khởi tạo yt-dlp với flag cookies chuẩn xác
             console.log("[STREAM] Bước 2: Khởi tạo luồng tải Audio bằng yt-dlp...");
             ytProcess = youtubeDl.exec(youtubeUrl, {
-                output: '-', 
+                output: '-',
                 format: 'bestaudio',
                 noWarnings: true,
                 cookies: cookiesPath // <--- ĐÃ SỬA THÀNH 'cookies' thay vì 'cookie'
@@ -163,7 +169,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
                         console.log("[STREAM] --- HOÀN TẤT XỬ LÝ TOÀN BỘ QUY TRÌNH! ---");
                         isFinished = true;
-                        cleanup(); 
+                        cleanup();
                         resolve(savedMusic);
 
                     } catch (dbError) {
@@ -323,7 +329,7 @@ const deleteMusic = async (req, res) => {
                     (cloudinaryError, cloudinaryResult) => {
                         if (cloudinaryError) {
                             console.error("[CLOUDINARY ERROR] Lỗi xóa file:", cloudinaryError.message);
-                            resolve(); 
+                            resolve();
                         } else {
                             console.log("[CLOUDINARY] Kết quả xóa thành công:", cloudinaryResult);
                             resolve(cloudinaryResult);
