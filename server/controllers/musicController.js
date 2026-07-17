@@ -33,11 +33,11 @@ const getVideoMetadata = async (youtubeUrl) => {
         const options = {
             dumpSingleJson: true,
             noWarnings: true,
-            // Giả lập trình duyệt để tránh bị phát hiện bot cơ bản
             addHeader: [
-                'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
                 'Accept-Language: en-US,en;q=0.9'
-            ]
+            ],
+            extractorArgs: 'youtube:player_client=web_safari,mweb,android'
         };
 
         if (fs.existsSync(cookiesPath)) {
@@ -63,7 +63,7 @@ const getVideoMetadata = async (youtubeUrl) => {
         console.log(`  -> Đang thử lấy metadata từ: ${apiTarget}`);
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 6000); // Giới hạn 6s phản hồi tránh treo app
+            const timeoutId = setTimeout(() => controller.abort(), 6000); 
 
             const response = await fetch(apiTarget, { signal: controller.signal });
             clearTimeout(timeoutId);
@@ -92,7 +92,7 @@ const getVideoMetadata = async (youtubeUrl) => {
             console.log(`[METADATA] <<< Lấy thông tin qua OEMBED API THÀNH CÔNG!`);
             return {
                 title: data.title,
-                duration: 240, // OEMBED không trả về độ dài, gán tạm 4 phút (sẽ tải tối đa đến khi luồng kết thúc)
+                duration: 240, 
                 thumbnail: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
             };
         }
@@ -156,31 +156,43 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             // BƯỚC 2: Khởi tạo yt-dlp lấy luồng âm thanh dạng Stream
             console.log("[STREAM] Bước 2: Thiết lập luồng yt-dlp stream...");
             
-            // Cấu hình fake Client nhằm đánh lừa thuật toán quét bot của YouTube khi stream raw
+            // Cấu hình fake Client và fake player Safari để bypass tuyệt đối IP chặn từ Cloud/Render
             const ytOptions = {
                 output: '-',
                 format: 'bestaudio',
                 noWarnings: true,
                 addHeader: [
-                    'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
                     'Accept-Language: en-US,en;q=0.9'
-                ]
+                ],
+                extractorArgs: 'youtube:player_client=web_safari,mweb,android'
             };
 
             if (fs.existsSync(cookiesPath)) {
                 ytOptions.cookies = cookiesPath;
             }
 
+            // BẢO VỆ CHỐNG CRASH HỆ THỐNG: Khởi chạy dưới dạng con thay vì Promise để bắt lỗi chủ động
             ytProcess = youtubeDl.exec(youtubeUrl, ytOptions);
             const youtubeAudioStream = ytProcess.stdout;
 
-            // Bắt lỗi tiến trình con yt-dlp
+            // Bắt lỗi tiến trình con yt-dlp chủ động chống sập Node.js
             ytProcess.on('error', (err) => {
                 console.error("[STREAM ERROR] yt-dlp Core Error:", err.message);
                 if (!isFinished) {
                     isFinished = true;
                     cleanup();
-                    reject(new Error("YouTube chặn kết nối stream audio trực tiếp."));
+                    reject(new Error("Không thể stream dữ liệu từ YouTube (Bị phát hiện Bot)."));
+                }
+            });
+
+            // Lắng nghe xem yt-dlp có kết thúc bất thường bằng mã exit khác 0 hay không
+            ytProcess.on('close', (code) => {
+                if (code && code !== 0 && !isFinished) {
+                    console.error(`[STREAM ERROR] yt-dlp kết thúc lỗi với mã exit: ${code}`);
+                    isFinished = true;
+                    cleanup();
+                    reject(new Error("Luồng tải YouTube bị ngắt kết nối do thuật toán chặn bot."));
                 }
             });
 
