@@ -211,9 +211,6 @@ function Music() {
     const [groupColors, setGroupColors] = useState({});
 
     const audioRef = useRef(null);
-    const audioContextRef = useRef(null);
-    const sourceRef = useRef(null);
-    const bassFilterRef = useRef(null);
     const cardsScrollRef = useRef(null);
     const pageWrapperRef = useRef(null);
     const shuffleHistoryRef = useRef([]);
@@ -303,38 +300,16 @@ function Music() {
         return () => pageEl.removeEventListener('wheel', onWheel);
     }, [playlists.length]);
 
-    const initAudioGraph = () => {
-        if (!audioRef.current || audioContextRef.current) return;
-        try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            const ctx = new AudioContext();
-            audioContextRef.current = ctx;
-            const source = ctx.createMediaElementSource(audioRef.current);
-            sourceRef.current = source;
-            const bassFilter = ctx.createBiquadFilter();
-            bassFilter.type = 'lowshelf';
-            bassFilter.frequency.value = 100;
-            bassFilter.gain.value = 2;
-            bassFilterRef.current = bassFilter;
-            source.connect(bassFilter);
-            bassFilter.connect(ctx.destination);
-        } catch (e) {
-            console.warn("Web Audio API Audio Graph error:", e);
-        }
-    };
+    // ĐÃ LOẠI BỎ HOÀN TOÀN AUDIO GRAPH GÂY KHÓA TRÊN IOS
 
     useEffect(() => {
         if (currentTrack && audioRef.current) {
             audioRef.current.load();
-            if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                audioContextRef.current.resume();
-            }
             audioRef.current.play()
                 .then(() => {
                     setIsPlaying(true);
-                    initAudioGraph();
                 })
-                .catch((err) => console.log("Lỗi autoplay:", err));
+                .catch((err) => console.log("Lỗi phát tự động:", err));
         }
     }, [currentTrack]);
 
@@ -346,14 +321,10 @@ function Music() {
         }
         if (!audioRef.current) return;
 
-        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-            audioContextRef.current.resume();
-        }
-
         if (audioRef.current.paused) {
             audioRef.current.play()
                 .then(() => setIsPlaying(true))
-                .catch(err => console.log(err));
+                .catch(err => console.log("Lỗi khi gọi play():", err));
         } else {
             audioRef.current.pause();
             setIsPlaying(false);
@@ -481,7 +452,6 @@ function Music() {
     useEffect(() => {
         if (!('mediaSession' in navigator) || !activeTrack) return;
 
-        // 1. Cập nhật Metadata hiển thị lên màn hình khóa iOS
         navigator.mediaSession.metadata = new MediaMetadata({
             title: activeTrack.title || 'Không có tiêu đề',
             artist: activeTrack.artist || 'Không rõ nghệ sĩ',
@@ -500,14 +470,12 @@ function Music() {
             ]
         });
 
-        // 2. Định nghĩa các Actions xử lý khi nhấn nút trên Control Center hoặc Màn hình khóa
         try {
             navigator.mediaSession.setActionHandler('play', handlePlayPause);
             navigator.mediaSession.setActionHandler('pause', handlePlayPause);
             navigator.mediaSession.setActionHandler('previoustrack', handlePrevTrack);
             navigator.mediaSession.setActionHandler('nexttrack', handleNextTrack);
 
-            // Bổ sung tua nhạc từ màn hình khóa (iOS Support)
             navigator.mediaSession.setActionHandler('seekto', (details) => {
                 if (details.seekTime !== undefined && audioRef.current) {
                     audioRef.current.currentTime = details.seekTime;
@@ -519,7 +487,6 @@ function Music() {
         }
 
         return () => {
-            // Dọn dẹp các Action Handler khi Unmount hoặc chuyển bài
             const actions = ['play', 'pause', 'previoustrack', 'nexttrack', 'seekto'];
             actions.forEach(action => {
                 try {
@@ -529,13 +496,11 @@ function Music() {
         };
     }, [activeTrack, handlePlayPause, handlePrevTrack, handleNextTrack]);
 
-    // 3. Đồng bộ trạng thái Chơi/Tạm dừng (Playback State)
     useEffect(() => {
         if (!('mediaSession' in navigator)) return;
         navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
     }, [isPlaying]);
 
-    // 4. Đồng bộ vị trí giây nhạc để thanh slider ngoài màn hình khóa chạy chuẩn xác
     useEffect(() => {
         if (!('mediaSession' in navigator) || !audioRef.current) return;
         if (typeof navigator.mediaSession.setPositionState === 'function') {
@@ -557,13 +522,14 @@ function Music() {
                 <audio
                     ref={audioRef}
                     src={activeTrack.cloudinaryUrl}
-                    crossOrigin="anonymous"
+                    playsInline  
+                    preload="auto"       
                     loop={repeatMode === 'one'}
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                     onEnded={handleTrackEnd}
-                    onPlay={() => setIsPlaying(true)}   // Đồng bộ sự kiện Play trực tiếp từ tag audio
-                    onPause={() => setIsPlaying(false)} // Đồng bộ sự kiện Pause trực tiếp từ tag audio
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
                 />
             )}
 
