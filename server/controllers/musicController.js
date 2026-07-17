@@ -20,7 +20,6 @@ const getVideoMetadata = async (youtubeUrl) => {
         const meta = await youtubeDl(youtubeUrl, {
             dumpSingleJson: true,
             noWarnings: true,
-            preferFreeFormats: true,
             cookies: cookiesPath // <--- ĐÃ SỬA THÀNH 'cookies' thay vì 'cookie'
         });
 
