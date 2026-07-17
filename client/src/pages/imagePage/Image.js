@@ -27,7 +27,9 @@ function Image() {
                 } else if (Array.isArray(res)) {
                     list = res;
                 }
-                setImages(list);
+                
+                // 👉 Đảo ngược mảng một cách an toàn để ảnh mới nằm ở cuối trang
+                setImages([...list].reverse());
             } catch (error) {
                 console.error('Lỗi khi tải danh sách ảnh:', error);
             } finally {
@@ -119,7 +121,6 @@ function Image() {
                         };
                     }
 
-
                     return (
                         <Box
                             key={item._id || `img-${originalIdx}`}
@@ -134,12 +135,14 @@ function Image() {
                                 onMouseEnter={() => setHoveredIdx(originalIdx)}
                                 onMouseMove={(e) => handleMouseMove(e, originalIdx)}
                                 onMouseLeave={handleMouseLeave}
+                                onClick={() => setSelected(item)} // Thêm sự kiện click để mở modal xem ảnh to (nếu cần)
                                 sx={{
                                     position: 'relative',
                                     width: { xs: '90%', sm: '80%', md: '80%' },
                                     overflow: 'hidden',
                                     borderRadius: '8px',
                                     backgroundColor: '#111',
+                                    cursor: 'pointer',
                                     transition: 'opacity 0.4s ease, filter 0.4s ease',
                                     opacity: hoveredIdx !== null && hoveredIdx !== originalIdx ? 0.4 : 1,
                                     filter: hoveredIdx !== null && hoveredIdx !== originalIdx ? 'blur(1.5px) grayscale(20%)' : 'none',
@@ -147,13 +150,12 @@ function Image() {
                                     '&:hover .caption-box': { transform: 'translateY(0)', opacity: 1 }
                                 }}
                             >
-                                <Box
+                                <img
                                     className="gallery-img"
-                                    component="img"
                                     src={optimizeCloudinaryUrl(getImageSrc(item), 700)}
                                     alt={item.title || 'Ảnh'}
                                     loading="lazy"
-                                    sx={{
+                                    style={{
                                         width: '100%',
                                         display: 'block',
                                         objectFit: 'cover',
@@ -186,6 +188,19 @@ function Image() {
                                         transform: 'translateY(8px)',
                                         opacity: 0.85,
                                         transition: 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.35s ease',
+                                    }}
+                                />
+                                <Box
+                                    sx={{
+                                        position: 'absolute',
+                                        left: 0, right: 0, bottom: 0,
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-end',
+                                        gap: 1.5,
+                                        px: { xs: 2, md: 2.5 },
+                                        py: { xs: 2, md: 2.5 },
+                                        zIndex: 2
                                     }}
                                 >
                                     <Typography sx={{
