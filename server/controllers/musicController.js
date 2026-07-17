@@ -1,6 +1,5 @@
 const path = require('path');
 const fs = require('fs');
-const youtubeDl = require('youtube-dl-exec');
 const ffmpeg = require('fluent-ffmpeg');
 const cloudinary = require('../config/cloudinary');
 const Music = require('../models/Music');
@@ -8,128 +7,87 @@ const Playlist = require('../models/Playlist');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-// Định nghĩa đường dẫn tới file cookies.txt
-const cookiesPath = path.resolve(process.cwd(), 'cookies.txt');
-
-// Danh sách các Invidious Instance hoạt động ổn định nhất (Dùng làm API dự phòng)
-const INVIDIOUS_INSTANCES = [
-    'https://inv.nadeko.net',
-    'https://invidious.nerdvpn.de',
-    'https://invidious.tiekoetter.com',
-    'https://inv.tux.im',
-    'https://invidious.flokinet.to',
-    'https://invidious.privacydev.net'
-];
-
 // ==========================================
-// 1. HÀM LẤY METADATA (CƠ CHẾ DỰ PHÒNG CHUỖI NHIỀU TẦNG)
+// 1. HÀM LẤY LUỒNG AUDIO DIRECT (BYPASS YT-DLP)
 // ==========================================
-const getVideoMetadata = async (youtubeUrl) => {
-    console.log(`\n[METADATA] >>> Bắt đầu lấy thông tin từ YouTube URL: ${youtubeUrl}`);
+const getDirectAudioUrlAndMetadata = async (youtubeUrl) => {
+    console.log(`\n[BYPASS-API] >>> Đang lấy luồng audio bypass cho URL: ${youtubeUrl}`);
     const videoId = cleanYoutubeUrl(youtubeUrl).split('v=')[1];
 
-    // --- TẦNG 1: THỬ BẰNG YT-DLP ---
-    try {
-        const options = {
-            dumpSingleJson: true,
-            noWarnings: true,
-            addHeader: [
-                'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
-                'Accept-Language: en-US,en;q=0.9'
-            ],
-            extractorArgs: 'youtube:player_client=web_safari,mweb,android'
-        };
+    // Thử danh sách các API Gateway chất lượng cao để lấy trực tiếp link audio stream từ YouTube
+    const streamGateways = [
+        `https://cobalt-api.lunes.host`,
+        `https://api.cobalt.tools`,
+        `https://cobalt.shas.moe`
+    ];
 
-        if (fs.existsSync(cookiesPath)) {
-            options.cookies = cookiesPath;
-            console.log(`[METADATA] Đã nạp file cookies vào yt-dlp.`);
-        }
-
-        const meta = await youtubeDl(youtubeUrl, options);
-        console.log(`[METADATA] <<< Lấy thông tin qua yt-dlp THÀNH CÔNG!`);
-        return {
-            title: meta.title,
-            duration: meta.duration,
-            thumbnail: meta.thumbnail
-        };
-    } catch (error) {
-        console.warn(`[METADATA WARNING] yt-dlp thất bại (Có thể bị block bot): ${error.message}`);
-    }
-
-    // --- TẦNG 2: THỬ LẦN LƯỢT CÁC API INVIDIOUS (FAILOVER) ---
-    console.log(`[METADATA] Đang kích hoạt cơ chế Failover qua các API cộng đồng...`);
-    for (const instance of INVIDIOUS_INSTANCES) {
-        const apiTarget = `${instance}/api/v1/videos/${videoId}`;
-        console.log(`  -> Đang thử lấy metadata từ: ${apiTarget}`);
+    for (const gateway of streamGateways) {
+        console.log(`  -> Thử lấy luồng audio từ Gateway: ${gateway}`);
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 6000); 
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 giây timeout
 
-            const response = await fetch(apiTarget, { signal: controller.signal });
+            const response = await fetch(gateway, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    url: youtubeUrl,
+                    videoQuality: '720', // Thiết lập chung
+                    audioFormat: 'best', // Lấy audio chất lượng cao nhất
+                    audioOnly: true,     // Chỉ lấy audio
+                    disableMetadata: false
+                }),
+                signal: controller.signal
+            });
+
             clearTimeout(timeoutId);
 
             if (response.ok) {
                 const data = await response.json();
-                console.log(`[METADATA] <<< Lấy thông tin qua API dự phòng [${instance}] THÀNH CÔNG!`);
-                return {
-                    title: data.title,
-                    duration: data.lengthSeconds,
-                    thumbnail: data.videoThumbnails?.[0]?.url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                };
+                if (data && data.url) {
+                    console.log(`[BYPASS-API] <<< Lấy luồng trực tiếp THÀNH CÔNG từ ${gateway}!`);
+                    
+                    // Lấy thông tin video thông qua OEMBED của YouTube hoặc gán mặc định
+                    let title = "YouTube Audio Track";
+                    try {
+                        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`);
+                        if (oembedRes.ok) {
+                            const oembedData = await oembedRes.json();
+                            title = oembedData.title;
+                        }
+                    } catch (e) {
+                        console.warn("[METADATA WARNING] Không lấy được tiêu đề chuẩn, dùng tiêu đề gốc.");
+                    }
+
+                    return {
+                        audioStreamUrl: data.url, // Link luồng audio trực tiếp (không bị chặn IP)
+                        title: title,
+                        duration: 240, // Giá trị tượng trưng (FFmpeg sẽ tải đến khi hết luồng thực tế)
+                        thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                    };
+                }
             }
-        } catch (apiError) {
-            console.warn(`  [FAILOVER WARNING] Trạm API [${instance}] không phản hồi hoặc bị lỗi: ${apiError.message}`);
+        } catch (err) {
+            console.warn(`  [GATEWAY WARNING] Trạm ${gateway} thất bại: ${err.message}`);
         }
     }
 
-    // --- TẦNG 3: CỨU CÁNH BẰNG NO-KEY OEMBED API (Hợp pháp của YouTube, không bị chặn) ---
-    console.log(`[METADATA] Toàn bộ Invidious API lỗi. Thử tầng cứu cánh cuối cùng: YouTube OEMBED API...`);
-    try {
-        const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`;
-        const response = await fetch(oembedUrl);
-        if (response.ok) {
-            const data = await response.json();
-            console.log(`[METADATA] <<< Lấy thông tin qua OEMBED API THÀNH CÔNG!`);
-            return {
-                title: data.title,
-                duration: 240, 
-                thumbnail: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-            };
-        }
-    } catch (oembedError) {
-        console.error(`[METADATA FATAL] Mọi phương án lấy metadata đều thất bại:`, oembedError.message);
-    }
-
-    throw new Error("Không thể kết xuất thông tin bài hát từ YouTube do hệ thống chặn bot cực đoan. Hãy thử lại sau ít phút!");
+    throw new Error("Không thể trích xuất luồng âm thanh từ bài hát này. YouTube đang thắt chặt bảo mật, hãy thử lại bài hát khác!");
 };
 
-// Kiểm tra sự tồn tại của cookies khi khởi động
-if (fs.existsSync(cookiesPath)) {
-    console.log(`[SYSTEM CHECK] >>> Tìm thấy file cookies tại: ${cookiesPath}`);
-} else {
-    console.warn(`[SYSTEM CHECK] >>> Lưu ý: Không tìm thấy file cookies.txt. Ứng dụng sẽ chạy ở chế độ bypass IP.`);
-}
-
 // ==========================================
-// 2. HÀM STREAM & CONVERT (CÓ TỰ ĐỘNG KHẮC PHỤC CHẶN IP)
+// 2. TIẾN TRÌNH STREAM QUA FFMPEG LÊN CLOUDINARY
 // ==========================================
 const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) => {
     return new Promise(async (resolve, reject) => {
-        let ytProcess = null;
         let ffmpegCommand = null;
         let isFinished = false;
 
         const cleanup = () => {
-            console.log("[CLEANUP] Đang tiến hành dọn dẹp tiến trình...");
-            if (ytProcess) {
-                try {
-                    ytProcess.kill('SIGKILL');
-                    console.log("  - Đã đóng an toàn tiến trình yt-dlp.");
-                } catch (e) {
-                    console.error("  - Lỗi khi đóng yt-dlp:", e.message);
-                }
-                ytProcess = null;
-            }
+            console.log("[CLEANUP] Đang tiến hành dọn dẹp tiến trình FFmpeg...");
             if (ffmpegCommand) {
                 try {
                     ffmpegCommand.kill('SIGKILL');
@@ -142,71 +100,14 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
         };
 
         try {
-            console.log("\n[STREAM] --- BẮT ĐẦU TIẾN TRÌNH STREAM DỮ LIỆU ---");
+            console.log("\n[STREAM] --- BẮT ĐẦU TIẾN TRÌNH STREAM DỮ LIỆU SẠCH ---");
 
-            // BƯỚC 1: Lấy Metadata thông qua hệ thống chuỗi failover bảo vệ
-            console.log("[STREAM] Bước 1: Thu thập metadata...");
-            const metaData = await getVideoMetadata(youtubeUrl);
+            // BƯỚC 1: Lấy link audio direct từ cổng bypass
+            console.log("[STREAM] Bước 1: Thu thập metadata & luồng trực tiếp...");
+            const mediaData = await getDirectAudioUrlAndMetadata(youtubeUrl);
 
-            if (metaData.duration > 600) {
-                console.warn(`[STREAM LIMIT] Từ chối xử lý do video dài quá hạn định (${metaData.duration}s).`);
-                return reject(new Error("Video dài quá 10 phút! Vui lòng gửi link bài hát ngắn hơn để hệ thống xử lý ổn định hơn."));
-            }
-
-            // BƯỚC 2: Khởi tạo yt-dlp lấy luồng âm thanh dạng Stream
-            console.log("[STREAM] Bước 2: Thiết lập luồng yt-dlp stream...");
-            
-            // Cấu hình fake Client và fake player Safari để bypass tuyệt đối IP chặn từ Cloud/Render
-            const ytOptions = {
-                output: '-',
-                format: 'bestaudio',
-                noWarnings: true,
-                addHeader: [
-                    'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
-                    'Accept-Language: en-US,en;q=0.9'
-                ],
-                extractorArgs: 'youtube:player_client=web_safari,mweb,android'
-            };
-
-            if (fs.existsSync(cookiesPath)) {
-                ytOptions.cookies = cookiesPath;
-            }
-
-            // BẢO VỆ CHỐNG CRASH HỆ THỐNG: Khởi chạy dưới dạng con thay vì Promise để bắt lỗi chủ động
-            ytProcess = youtubeDl.exec(youtubeUrl, ytOptions);
-            const youtubeAudioStream = ytProcess.stdout;
-
-            // Bắt lỗi tiến trình con yt-dlp chủ động chống sập Node.js
-            ytProcess.on('error', (err) => {
-                console.error("[STREAM ERROR] yt-dlp Core Error:", err.message);
-                if (!isFinished) {
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Không thể stream dữ liệu từ YouTube (Bị phát hiện Bot)."));
-                }
-            });
-
-            // Lắng nghe xem yt-dlp có kết thúc bất thường bằng mã exit khác 0 hay không
-            ytProcess.on('close', (code) => {
-                if (code && code !== 0 && !isFinished) {
-                    console.error(`[STREAM ERROR] yt-dlp kết thúc lỗi với mã exit: ${code}`);
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Luồng tải YouTube bị ngắt kết nối do thuật toán chặn bot."));
-                }
-            });
-
-            youtubeAudioStream.on('error', (err) => {
-                console.error("[STREAM ERROR] YouTube Stream Stdout Error:", err.message);
-                if (!isFinished) {
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Mất kết nối với luồng âm thanh YouTube."));
-                }
-            });
-
-            // BƯỚC 3: Cấu hình Cloudinary Stream
-            console.log("[STREAM] Bước 3: Đang mở cổng truyền lên Cloudinary...");
+            // BƯỚC 2: Cấu hình cổng nhận của Cloudinary
+            console.log("[STREAM] Bước 2: Đang mở cổng truyền lên Cloudinary...");
             const cloudinaryUploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'youtube_mp3_tracks',
@@ -223,19 +124,19 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                         }
                     }
 
-                    // BƯỚC 4: Lưu bản ghi vào MongoDB
+                    // BƯỚC 3: Lưu bản ghi vào Database
                     try {
-                        console.log("[STREAM] Bước 4: Tải lên Cloudinary thành công! Đang lưu thông tin vào Database...");
+                        console.log("[STREAM] Bước 3: Tải lên Cloudinary thành công! Đang lưu vào Database...");
                         
-                        const minutes = Math.floor(metaData.duration / 60);
-                        const seconds = metaData.duration % 60;
+                        const minutes = Math.floor(mediaData.duration / 60);
+                        const seconds = mediaData.duration % 60;
                         const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
                         const newMusic = new Music({
-                            title: metaData.title,
+                            title: mediaData.title,
                             youtubeUrl: youtubeUrl,
                             duration: formattedDuration,
-                            thumbnail: metaData.thumbnail,
+                            thumbnail: mediaData.thumbnail,
                             cloudinaryUrl: cloudinaryResult.secure_url,
                             cloudinaryPublicId: cloudinaryResult.public_id
                         });
@@ -268,17 +169,18 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             );
 
             cloudinaryUploadStream.on('error', (err) => {
-                console.error("[CLOUDINARY ERROR] Cloudinary Stream Writable Error:", err.message);
+                console.error("[CLOUDINARY ERROR] Luồng ghi Cloudinary lỗi:", err.message);
                 if (!isFinished) {
                     isFinished = true;
                     cleanup();
-                    reject(new Error("Hệ thống mạng gián đoạn khi gửi file lên Cloudinary."));
+                    reject(new Error("Hệ thống mạng gián đoạn khi truyền dữ liệu đám mây."));
                 }
             });
 
-            // BƯỚC 5: Thiết lập FFmpeg Converter Pipe
-            console.log("[STREAM] Bước 5: Đang pipe luồng âm thanh qua FFmpeg convert...");
-            ffmpegCommand = ffmpeg(youtubeAudioStream)
+            // BƯỚC 4: Chạy FFmpeg convert trực tiếp luồng Audio URL sang MP3
+            console.log("[STREAM] Bước 3: Đang pipe luồng âm thanh trực tiếp từ API sang FFmpeg...");
+            
+            ffmpegCommand = ffmpeg(mediaData.audioStreamUrl)
                 .toFormat('mp3')
                 .audioBitrate(128)
                 .on('error', (ffmpegError) => {
@@ -286,14 +188,15 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                     console.error('[FFMPEG ERROR] Tiến trình convert bị đứt luồng:', ffmpegError.message);
                     isFinished = true;
                     cleanup();
-                    reject(new Error("Lỗi nén nhạc hoặc YouTube đột ngột đóng kết nối tải."));
+                    reject(new Error("Lỗi nén nhạc hoặc luồng âm thanh nguồn bị ngắt đột ngột."));
                 });
 
+            // Ghi luồng trực tiếp lên Cloudinary
             ffmpegCommand.pipe(cloudinaryUploadStream);
-            console.log("[STREAM] >>> Đang chuyển mã sang MP3 và tải lên Cloudinary... Vui lòng chờ...");
+            console.log("[STREAM] >>> Đang chuyển mã và tải lên đám mây... Vui lòng đợi...");
 
         } catch (error) {
-            console.error("[STREAM FATAL ERROR] Lỗi tổng đài:", error.message);
+            console.error("[STREAM FATAL ERROR] Lỗi hệ thống:", error.message);
             if (!isFinished) {
                 isFinished = true;
                 cleanup();
