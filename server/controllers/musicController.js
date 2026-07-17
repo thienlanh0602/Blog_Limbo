@@ -26,58 +26,57 @@ const cleanYoutubeUrl = (url) => {
 };
 
 // ==========================================
-// 1. TIẾN TRÌNH STREAM QUA FFMPEG LÊN CLOUDINARY
+// CÁCH 1: TẢI VỀ FILE TẠM - CHUYỂN ĐỔI - TẢI LÊN CLOUDINARY
 // ==========================================
-const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) => {
+const processYoutubeToCloudinaryAndMongoLocalFile = async (youtubeUrl, playlistId) => {
     return new Promise(async (resolve, reject) => {
-        let ffmpegCommand = null;
-        let isFinished = false;
+        // Tạo thư mục tạm 'temp' ở thư mục gốc của dự án nếu chưa có
+        const tempDir = path.join(__dirname, '../temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
 
-        const cleanup = () => {
-            console.log("[CLEANUP] Đang tiến hành dọn dẹp tiến trình FFmpeg...");
-            if (ffmpegCommand) {
-                try {
-                    ffmpegCommand.kill('SIGKILL');
-                    console.log("  - Đã đóng an toàn tiến trình FFmpeg.");
-                } catch (e) {
-                    console.error("  - Lỗi khi đóng FFmpeg:", e.message);
-                }
-                ffmpegCommand = null;
+        const sanitizedUrl = cleanYoutubeUrl(youtubeUrl);
+        const videoId = sanitizedUrl.split('v=')[1];
+
+        // Định nghĩa đường dẫn file tạm cục bộ
+        const rawTempPath = path.join(tempDir, `raw_${videoId}`);
+        const mp3TempPath = path.join(tempDir, `${videoId}.mp3`);
+
+        // Helper tự động dọn dẹp file tạm sau khi kết thúc (dù thành công hay thất bại)
+        const cleanupTempFiles = () => {
+            console.log("[CLEANUP] Đang dọn dẹp các file tạm cục bộ...");
+            if (fs.existsSync(rawTempPath)) {
+                try { fs.unlinkSync(rawTempPath); console.log("  - Đã xóa raw temp file."); } catch (e) { console.error(e); }
+            }
+            if (fs.existsSync(mp3TempPath)) {
+                try { fs.unlinkSync(mp3TempPath); console.log("  - Đã xóa MP3 temp file."); } catch (e) { console.error(e); }
             }
         };
 
         try {
-            console.log("\n[STREAM] --- BẮT ĐẦU TIẾN TRÌNH STREAM DỮ LIỆU SẠCH (YOUTUBEI.JS) ---");
-
-            const sanitizedUrl = cleanYoutubeUrl(youtubeUrl);
-            const videoId = sanitizedUrl.split('v=')[1];
+            console.log("\n[LOCAL-FILE] --- BẮT ĐẦU TIẾN TRÌNH CÁCH 1 (GHI FILE TẠM) ---");
 
             // BƯỚC 1: Khởi tạo InnerTube Client & Thu thập metadata
-            console.log("[STREAM] Bước 1: Đang khởi tạo InnerTube Client và lấy metadata...");
-
+            console.log("[LOCAL-FILE] Bước 1: Đang khởi tạo InnerTube Client và lấy metadata...");
             let ytOptions = {};
             try {
-                // Định vị chính xác đường dẫn file cookies.json ở thư mục gốc của dự án
                 const cookiePath = path.join(__dirname, '../cookies.json'); 
                 if (fs.existsSync(cookiePath)) {
                     const cookieData = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
                     ytOptions.cookie = cookieData;
-                    console.log("  -> Đã nạp thành công Cookies tài khoản để bypass!");
-                } else {
-                    console.log("  -> Không tìm thấy file cookies.json tại gốc. Chạy ở chế độ Guest...");
+                    console.log("  -> Đã nạp thành công Cookies tài khoản!");
                 }
             } catch (cookieErr) {
-                console.warn("  [COOKIE WARNING] Không nạp được cookies, thử chạy ẩn danh:", cookieErr.message);
+                console.warn("  [COOKIE WARNING] Không nạp được cookies:", cookieErr.message);
             }
 
             const yt = await Innertube.create(ytOptions);
             const videoInfo = await yt.getInfo(videoId);
 
-            // TRÁNH CRASH: Sử dụng Optional Chaining an toàn khi parse thông tin cơ bản
             const title = videoInfo.basic_info?.title || "YouTube Audio Track";
             const durationSec = videoInfo.basic_info?.duration || 240;
 
-            // Bypass lỗi undefined thumbnail: Kiểm tra kỹ mảng trước khi truy cập index [0]
             let thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
             if (videoInfo.basic_info?.thumbnail && videoInfo.basic_info.thumbnail.length > 0) {
                 thumbnail = videoInfo.basic_info.thumbnail[0].url;
@@ -86,109 +85,84 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             console.log(`[YOUTUBE-INFO] Tiêu đề: ${title}`);
             console.log(`[YOUTUBE-INFO] Thời lượng: ${durationSec} giây`);
 
-            // BƯỚC 2: Trích xuất luồng tải Audio trực tiếp từ YouTube
-            console.log("[STREAM] Bước 2: Đang lấy luồng âm thanh trực tiếp từ YouTube...");
+            // BƯỚC 2: Tải luồng âm thanh gốc về lưu thành file tạm cục bộ
+            console.log("[LOCAL-FILE] Bước 2: Đang tải luồng âm thanh thô về ổ cứng...");
             const nodeReadableStream = await videoInfo.download({
                 type: 'audio',
                 quality: 'best',
-                client: 'ANDROID_VR' // Bypass cực kỳ mượt trên môi trường Server/Cloud
+                client: 'ANDROID_VR'
             });
 
-            // BƯỚC 3: Cấu hình luồng đẩy lên Cloudinary
-            console.log("[STREAM] Bước 3: Đang mở cổng truyền lên Cloudinary...");
-            const cloudinaryUploadStream = cloudinary.uploader.upload_stream(
-                {
-                    folder: 'youtube_mp3_tracks',
-                    resource_type: 'video',
-                    format: 'mp3'
-                },
-                async (cloudinaryError, cloudinaryResult) => {
-                    if (cloudinaryError) {
-                        console.error("[CLOUDINARY ERROR] Upload thất bại:", cloudinaryError);
-                        if (!isFinished) {
-                            isFinished = true;
-                            cleanup();
-                            return reject(new Error("Không thể lưu file lên máy chủ Cloudinary."));
-                        }
-                    }
+            // Ghi luồng dữ liệu vào file thô trên đĩa cứng
+            await new Promise((res, rej) => {
+                const writeStream = fs.createWriteStream(rawTempPath);
+                nodeReadableStream.pipe(writeStream);
+                nodeReadableStream.on('end', () => res());
+                nodeReadableStream.on('error', (err) => rej(err));
+                writeStream.on('error', (err) => rej(err));
+            });
+            console.log("  -> Ghi file thô hoàn tất!");
 
-                    // BƯỚC 4: Lưu thông tin bản ghi vào Database
-                    try {
-                        console.log("[STREAM] Bước 4: Tải lên Cloudinary thành công! Đang lưu vào Database...");
-
-                        const minutes = Math.floor(durationSec / 60);
-                        const seconds = durationSec % 60;
-                        const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-
-                        const newMusic = new Music({
-                            title: title,
-                            youtubeUrl: sanitizedUrl,
-                            duration: formattedDuration,
-                            thumbnail: thumbnail,
-                            cloudinaryUrl: cloudinaryResult.secure_url,
-                            cloudinaryPublicId: cloudinaryResult.public_id
-                        });
-
-                        const savedMusic = await newMusic.save();
-                        console.log(`[DATABASE] Đã lưu nhạc thành công. ID: ${savedMusic._id}`);
-
-                        if (playlistId) {
-                            console.log(`[DATABASE] Gán bài hát mới vào Playlist ID: ${playlistId}`);
-                            await Playlist.findByIdAndUpdate(
-                                playlistId,
-                                { $push: { tracks: savedMusic._id } }
-                            );
-                        }
-
-                        console.log("[STREAM] --- HOÀN THÀNH TOÀN BỘ QUY TRÌNH XỬ LÝ! ---");
-                        isFinished = true;
-                        cleanup();
-                        resolve(savedMusic);
-
-                    } catch (dbError) {
-                        console.error("[DATABASE ERROR] Lỗi tương tác MongoDB:", dbError.message);
-                        if (!isFinished) {
-                            isFinished = true;
-                            cleanup();
-                            reject(dbError);
-                        }
-                    }
-                }
-            );
-
-            cloudinaryUploadStream.on('error', (err) => {
-                console.error("[CLOUDINARY ERROR] Luồng ghi Cloudinary lỗi:", err.message);
-                if (!isFinished) {
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Hệ thống mạng gián đoạn khi truyền dữ liệu đám mây."));
-                }
+            // BƯỚC 3: Sử dụng FFmpeg convert từ file thô sang file .mp3 tạm thời
+            console.log("[LOCAL-FILE] Bước 3: Chạy FFmpeg convert sang MP3...");
+            await new Promise((res, rej) => {
+                ffmpeg(rawTempPath)
+                    .toFormat('mp3')
+                    .audioBitrate(128)
+                    .on('end', () => {
+                        console.log("  -> Chuyển mã sang MP3 thành công!");
+                        res();
+                    })
+                    .on('error', (ffmpegErr) => {
+                        console.error("[FFMPEG ERROR] Thất bại khi convert:", ffmpegErr.message);
+                        rej(ffmpegErr);
+                    })
+                    .save(mp3TempPath);
             });
 
-            // BƯỚC 5: Nạp trực tiếp stream từ InnerTube vào FFmpeg để chuyển sang MP3
-            console.log("[STREAM] Bước 5: Đang pipe luồng âm thanh qua FFmpeg convert...");
-            ffmpegCommand = ffmpeg(nodeReadableStream)
-                .toFormat('mp3')
-                .audioBitrate(128)
-                .on('error', (ffmpegError) => {
-                    if (isFinished) return;
-                    console.error('[FFMPEG ERROR] Tiến trình convert bị đứt luồng:', ffmpegError.message);
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Lỗi nén nhạc hoặc luồng âm thanh nguồn bị ngắt đột ngột."));
-                });
+            // BƯỚC 4: Upload file .mp3 đã hoàn chỉnh lên Cloudinary
+            console.log("[LOCAL-FILE] Bước 4: Đang tải file MP3 lên Cloudinary...");
+            const cloudinaryResult = await cloudinary.uploader.upload(mp3TempPath, {
+                folder: 'youtube_mp3_tracks',
+                resource_type: 'video', // Cloudinary quản lý file âm thanh dưới dạng 'video'
+                format: 'mp3'
+            });
+            console.log("  -> Upload Cloudinary thành công!");
 
-            // Ghi luồng trực tiếp lên Cloudinary
-            ffmpegCommand.pipe(cloudinaryUploadStream);
-            console.log("[STREAM] >>> Đang chuyển mã sang MP3 và tải lên Cloudinary... Vui lòng chờ...");
+            // BƯỚC 5: Lưu thông tin bản ghi vào Database
+            console.log("[LOCAL-FILE] Bước 5: Đang lưu vào Database...");
+            const minutes = Math.floor(durationSec / 60);
+            const seconds = durationSec % 60;
+            const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+            const newMusic = new Music({
+                title: title,
+                youtubeUrl: sanitizedUrl,
+                duration: formattedDuration,
+                thumbnail: thumbnail,
+                cloudinaryUrl: cloudinaryResult.secure_url,
+                cloudinaryPublicId: cloudinaryResult.public_id
+            });
+
+            const savedMusic = await newMusic.save();
+            console.log(`[DATABASE] Đã lưu nhạc thành công. ID: ${savedMusic._id}`);
+
+            if (playlistId) {
+                console.log(`[DATABASE] Gán bài hát mới vào Playlist ID: ${playlistId}`);
+                await Playlist.findByIdAndUpdate(
+                    playlistId,
+                    { $push: { tracks: savedMusic._id } }
+                );
+            }
+
+            console.log("[LOCAL-FILE] --- HOÀN THÀNH TOÀN BỘ QUY TRÌNH (CÁCH 1) ---");
+            cleanupTempFiles();
+            resolve(savedMusic);
 
         } catch (error) {
-            console.error("[STREAM FATAL ERROR] Lỗi hệ thống:", error.message);
-            if (!isFinished) {
-                isFinished = true;
-                cleanup();
-                reject(error);
-            }
+            console.error("[LOCAL-FILE FATAL ERROR] Lỗi hệ thống:", error.message);
+            cleanupTempFiles();
+            reject(error);
         }
     });
 };
@@ -208,7 +182,8 @@ const handleDownloadAndSave = async (req, res) => {
         }
         const sanitizedUrl = cleanYoutubeUrl(url);
 
-        const result = await processYoutubeToCloudinaryAndMongoStream(sanitizedUrl, playlistId);
+        // Gọi Hàm xử lý Cách 1 (File tạm cục bộ)
+        const result = await processYoutubeToCloudinaryAndMongoLocalFile(sanitizedUrl, playlistId);
 
         return res.status(201).json({
             success: true,
