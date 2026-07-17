@@ -48,7 +48,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
         try {
             console.log("\n[STREAM] --- BẮT ĐẦU TIẾN TRÌNH STREAM DỮ LIỆU SẠCH (YOUTUBEI.JS) ---");
-            
+
             const sanitizedUrl = cleanYoutubeUrl(youtubeUrl);
             const videoId = sanitizedUrl.split('v=')[1];
 
@@ -57,9 +57,15 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             const yt = await Innertube.create();
             const videoInfo = await yt.getInfo(videoId);
 
-            const title = videoInfo.basic_info.title || "YouTube Audio Track";
-            const durationSec = videoInfo.basic_info.duration || 240; // Mặc định 240s nếu không lấy được
-            const thumbnail = videoInfo.basic_info.thumbnail[0]?.url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            // TRÁNH CRASH: Sử dụng Optional Chaining an toàn khi parse thông tin cơ bản
+            const title = videoInfo.basic_info?.title || "YouTube Audio Track";
+            const durationSec = videoInfo.basic_info?.duration || 240;
+
+            // Bypass lỗi undefined thumbnail: Kiểm tra kỹ mảng trước khi truy cập index [0]
+            let thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            if (videoInfo.basic_info?.thumbnail && videoInfo.basic_info.thumbnail.length > 0) {
+                thumbnail = videoInfo.basic_info.thumbnail[0].url;
+            }
 
             console.log(`[YOUTUBE-INFO] Tiêu đề: ${title}`);
             console.log(`[YOUTUBE-INFO] Thời lượng: ${durationSec} giây`);
@@ -69,7 +75,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             const nodeReadableStream = await videoInfo.download({
                 type: 'audio',
                 quality: 'best',
-                client: 'YTMUSIC' // Giả lập YouTube Music Client để tăng tính ổn định
+                client: 'YTMUSIC' // Giả lập thiết bị di động/YT Music cực kỳ ổn định
             });
 
             // BƯỚC 3: Cấu hình luồng đẩy lên Cloudinary
@@ -93,7 +99,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                     // BƯỚC 4: Lưu thông tin bản ghi vào Database
                     try {
                         console.log("[STREAM] Bước 4: Tải lên Cloudinary thành công! Đang lưu vào Database...");
-                        
+
                         const minutes = Math.floor(durationSec / 60);
                         const seconds = durationSec % 60;
                         const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
