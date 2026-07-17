@@ -57,11 +57,14 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
             let ytOptions = {};
             try {
-                const cookiePath = path.join(__dirname, '../cookies.json'); // Đường dẫn đến file cookies.json của bạn
+                // Định vị chính xác đường dẫn file cookies.json ở thư mục gốc của dự án
+                const cookiePath = path.join(__dirname, '../cookies.json'); 
                 if (fs.existsSync(cookiePath)) {
                     const cookieData = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
                     ytOptions.cookie = cookieData;
                     console.log("  -> Đã nạp thành công Cookies tài khoản để bypass!");
+                } else {
+                    console.log("  -> Không tìm thấy file cookies.json tại gốc. Chạy ở chế độ Guest...");
                 }
             } catch (cookieErr) {
                 console.warn("  [COOKIE WARNING] Không nạp được cookies, thử chạy ẩn danh:", cookieErr.message);
@@ -88,7 +91,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             const nodeReadableStream = await videoInfo.download({
                 type: 'audio',
                 quality: 'best',
-                client: 'TV' // Giả lập thiết bị di động/YT Music cực kỳ ổn định
+                client: 'ANDROID_VR' // Bypass cực kỳ mượt trên môi trường Server/Cloud
             });
 
             // BƯỚC 3: Cấu hình luồng đẩy lên Cloudinary
