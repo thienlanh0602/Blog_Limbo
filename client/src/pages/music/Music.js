@@ -475,6 +475,82 @@ function Music() {
         });
     };
 
+    // ==========================================
+    // TÍCH HỢP MEDIA SESSION API CHO IPHONE (iOS)
+    // ==========================================
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !activeTrack) return;
+
+        // 1. Cập nhật Metadata hiển thị lên màn hình khóa iOS
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: activeTrack.title || 'Không có tiêu đề',
+            artist: activeTrack.artist || 'Không rõ nghệ sĩ',
+            album: 'My Playlist',
+            artwork: [
+                {
+                    src: activeTrack.thumbnail || 'https://via.placeholder.com/300x300?text=No+Image',
+                    sizes: '300x300',
+                    type: 'image/jpeg'
+                },
+                {
+                    src: activeTrack.thumbnail || 'https://via.placeholder.com/512x512?text=No+Image',
+                    sizes: '512x512',
+                    type: 'image/jpeg'
+                }
+            ]
+        });
+
+        // 2. Định nghĩa các Actions xử lý khi nhấn nút trên Control Center hoặc Màn hình khóa
+        try {
+            navigator.mediaSession.setActionHandler('play', handlePlayPause);
+            navigator.mediaSession.setActionHandler('pause', handlePlayPause);
+            navigator.mediaSession.setActionHandler('previoustrack', handlePrevTrack);
+            navigator.mediaSession.setActionHandler('nexttrack', handleNextTrack);
+
+            // Bổ sung tua nhạc từ màn hình khóa (iOS Support)
+            navigator.mediaSession.setActionHandler('seekto', (details) => {
+                if (details.seekTime !== undefined && audioRef.current) {
+                    audioRef.current.currentTime = details.seekTime;
+                    setCurrentTime(details.seekTime);
+                }
+            });
+        } catch (error) {
+            console.warn("Trình duyệt không hỗ trợ một số Action của Media Session", error);
+        }
+
+        return () => {
+            // Dọn dẹp các Action Handler khi Unmount hoặc chuyển bài
+            const actions = ['play', 'pause', 'previoustrack', 'nexttrack', 'seekto'];
+            actions.forEach(action => {
+                try {
+                    navigator.mediaSession.setActionHandler(action, null);
+                } catch (e) {}
+            });
+        };
+    }, [activeTrack, handlePlayPause, handlePrevTrack, handleNextTrack]);
+
+    // 3. Đồng bộ trạng thái Chơi/Tạm dừng (Playback State)
+    useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }, [isPlaying]);
+
+    // 4. Đồng bộ vị trí giây nhạc để thanh slider ngoài màn hình khóa chạy chuẩn xác
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !audioRef.current) return;
+        if (typeof navigator.mediaSession.setPositionState === 'function') {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: duration || 0,
+                    playbackRate: audioRef.current.playbackRate || 1,
+                    position: currentTime || 0
+                });
+            } catch (err) {
+                console.warn("Không thể cập nhật PositionState:", err);
+            }
+        }
+    }, [currentTime, duration]);
+
     return (
         <PageContainer maxWidth={1800} disableGutters>
             {activeTrack?.cloudinaryUrl && (
@@ -486,6 +562,8 @@ function Music() {
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                     onEnded={handleTrackEnd}
+                    onPlay={() => setIsPlaying(true)}   // Đồng bộ sự kiện Play trực tiếp từ tag audio
+                    onPause={() => setIsPlaying(false)} // Đồng bộ sự kiện Pause trực tiếp từ tag audio
                 />
             )}
 
