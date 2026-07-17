@@ -4,7 +4,8 @@ const youtubeDl = require('youtube-dl-exec');
 const ffmpeg = require('fluent-ffmpeg');
 const cloudinary = require('../config/cloudinary');
 const Music = require('../models/Music');
-const Playlist = require('../models/Playlist'); 
+const Playlist = require('../models/Playlist');
+const cookiesPath = path.join(__dirname, '../cookies.txt');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
@@ -17,7 +18,8 @@ const getVideoMetadata = async (youtubeUrl) => {
         const meta = await youtubeDl(youtubeUrl, {
             dumpSingleJson: true,
             noWarnings: true,
-            preferFreeFormats: true
+            preferFreeFormats: true,
+            cookie: cookiesPath
         });
 
         console.log(`[METADATA] <<< Lấy thông tin thành công!`);
@@ -70,7 +72,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
         try {
             console.log("\n[STREAM] --- BẮT ĐẦU QUÁ TRÌNH TẢI & CONVERT NHẠC ---");
-            
+
             // BƯỚC 1: Lấy Metadata
             console.log("[STREAM] Bước 1: Đang lấy thông tin video...");
             const metaData = await getVideoMetadata(youtubeUrl);
@@ -83,7 +85,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             // BƯỚC 2: Khởi tạo yt-dlp
             console.log("[STREAM] Bước 2: Khởi tạo luồng tải Audio bằng yt-dlp...");
             ytProcess = youtubeDl.exec(youtubeUrl, {
-                output: '-', 
+                output: '-',
                 format: 'bestaudio',
                 noWarnings: true
             });
@@ -160,7 +162,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
                         console.log("[STREAM] --- HOÀN TẤT XỬ LÝ TOÀN BỘ QUY TRÌNH! ---");
                         isFinished = true;
-                        cleanup(); 
+                        cleanup();
                         resolve(savedMusic);
 
                     } catch (dbError) {
