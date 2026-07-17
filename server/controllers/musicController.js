@@ -4,13 +4,15 @@ const youtubeDl = require('youtube-dl-exec');
 const ffmpeg = require('fluent-ffmpeg');
 const cloudinary = require('../config/cloudinary');
 const Music = require('../models/Music');
-const Playlist = require('../models/Playlist');
-const cookiesPath = path.join(__dirname, '../cookies.txt');
+const Playlist = require('../models/Playlist'); 
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+// Định nghĩa chính xác đường dẫn tới file cookies.txt của bạn
+const cookiesPath = path.join(__dirname, '../cookies.txt'); 
+
 // ==========================================
-// 1. HÀM LẤY METADATA (CÓ LOG CHI TIẾT)
+// 1. HÀM LẤY METADATA (ĐÃ SỬA FLAG COOKIES)
 // ==========================================
 const getVideoMetadata = async (youtubeUrl) => {
     console.log(`\n[METADATA] >>> Bắt đầu lấy thông tin từ YouTube URL: ${youtubeUrl}`);
@@ -19,7 +21,7 @@ const getVideoMetadata = async (youtubeUrl) => {
             dumpSingleJson: true,
             noWarnings: true,
             preferFreeFormats: true,
-            cookie: cookiesPath
+            cookies: cookiesPath // <--- ĐÃ SỬA THÀNH 'cookies' thay vì 'cookie'
         });
 
         console.log(`[METADATA] <<< Lấy thông tin thành công!`);
@@ -39,15 +41,14 @@ const getVideoMetadata = async (youtubeUrl) => {
 };
 
 // ==========================================
-// 2. HÀM STREAM & CONVERT (LOG TỪNG BƯỚC CHỐNG TREO)
+// 2. HÀM STREAM & CONVERT (ĐÃ SỬA FLAG COOKIES)
 // ==========================================
 const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) => {
     return new Promise(async (resolve, reject) => {
         let ytProcess = null;
         let ffmpegCommand = null;
-        let isFinished = false; // Flag kiểm soát tránh gọi trùng lặp
+        let isFinished = false;
 
-        // Hàm dọn dẹp tiến trình con khi kết thúc hoặc lỗi
         const cleanup = () => {
             console.log("[CLEANUP] Đang dọn dẹp tiến trình chạy ngầm...");
             if (ytProcess) {
@@ -72,7 +73,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
         try {
             console.log("\n[STREAM] --- BẮT ĐẦU QUÁ TRÌNH TẢI & CONVERT NHẠC ---");
-
+            
             // BƯỚC 1: Lấy Metadata
             console.log("[STREAM] Bước 1: Đang lấy thông tin video...");
             const metaData = await getVideoMetadata(youtubeUrl);
@@ -82,12 +83,13 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                 return reject(new Error("Video quá dài! Vui lòng chọn video ngắn hơn 10 phút để hệ thống xử lý mượt mà."));
             }
 
-            // BƯỚC 2: Khởi tạo yt-dlp
+            // BƯỚC 2: Khởi tạo yt-dlp với flag cookies chuẩn xác
             console.log("[STREAM] Bước 2: Khởi tạo luồng tải Audio bằng yt-dlp...");
             ytProcess = youtubeDl.exec(youtubeUrl, {
-                output: '-',
+                output: '-', 
                 format: 'bestaudio',
-                noWarnings: true
+                noWarnings: true,
+                cookies: cookiesPath // <--- ĐÃ SỬA THÀNH 'cookies' thay vì 'cookie'
             });
 
             const youtubeAudioStream = ytProcess.stdout;
@@ -162,7 +164,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
                         console.log("[STREAM] --- HOÀN TẤT XỬ LÝ TOÀN BỘ QUY TRÌNH! ---");
                         isFinished = true;
-                        cleanup();
+                        cleanup(); 
                         resolve(savedMusic);
 
                     } catch (dbError) {
@@ -192,14 +194,13 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                 .toFormat('mp3')
                 .audioBitrate(128)
                 .on('error', (ffmpegError) => {
-                    if (isFinished) return; // Nếu đã xong hoặc lỗi từ trước thì bỏ qua
+                    if (isFinished) return;
                     console.error('[FFMPEG ERROR] Lỗi tiến trình convert của FFmpeg:', ffmpegError.message);
                     isFinished = true;
                     cleanup();
                     reject(new Error("Lỗi chuyển đổi định dạng âm thanh trên RAM"));
                 });
 
-            // Tiến hành nối ống luồng dữ liệu (Pipe)
             ffmpegCommand.pipe(cloudinaryUploadStream);
             console.log("[STREAM] >>> Đang chuyển đổi và tải lên đám mây... Vui lòng đợi...");
 
@@ -313,7 +314,6 @@ const deleteMusic = async (req, res) => {
             });
         }
 
-        // Xóa file trên Cloudinary
         if (musicItem.cloudinaryPublicId) {
             console.log(`[CLOUDINARY] Tiến hành xóa file trên Cloudinary với Public ID: ${musicItem.cloudinaryPublicId}`);
 
@@ -324,7 +324,7 @@ const deleteMusic = async (req, res) => {
                     (cloudinaryError, cloudinaryResult) => {
                         if (cloudinaryError) {
                             console.error("[CLOUDINARY ERROR] Lỗi xóa file:", cloudinaryError.message);
-                            resolve(); // Cho qua để xóa tiếp trong DB
+                            resolve(); 
                         } else {
                             console.log("[CLOUDINARY] Kết quả xóa thành công:", cloudinaryResult);
                             resolve(cloudinaryResult);
@@ -334,7 +334,6 @@ const deleteMusic = async (req, res) => {
             });
         }
 
-        // Gỡ khỏi Playlist
         console.log(`[DATABASE] Đang gỡ bỏ ID bài hát khỏi các Playlist tương ứng...`);
         const updatePlaylistResult = await Playlist.updateMany(
             { tracks: id },
@@ -342,7 +341,6 @@ const deleteMusic = async (req, res) => {
         );
         console.log(`[DATABASE] Đã cập nhật xong các Playlist (Ảnh hưởng: ${updatePlaylistResult.modifiedCount} playlist).`);
 
-        // Xóa hẳn khỏi DB
         await Music.findByIdAndDelete(id);
         console.log(`[DATABASE] Đã xóa bài hát ID: ${id} khỏi cơ sở dữ liệu.`);
 
