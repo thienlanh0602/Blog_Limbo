@@ -54,7 +54,20 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
             // BƯỚC 1: Khởi tạo InnerTube Client & Thu thập metadata
             console.log("[STREAM] Bước 1: Đang khởi tạo InnerTube Client và lấy metadata...");
-            const yt = await Innertube.create();
+
+            let ytOptions = {};
+            try {
+                const cookiePath = path.join(__dirname, '../cookies.json'); // Đường dẫn đến file cookies.json của bạn
+                if (fs.existsSync(cookiePath)) {
+                    const cookieData = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
+                    ytOptions.cookie = cookieData;
+                    console.log("  -> Đã nạp thành công Cookies tài khoản để bypass!");
+                }
+            } catch (cookieErr) {
+                console.warn("  [COOKIE WARNING] Không nạp được cookies, thử chạy ẩn danh:", cookieErr.message);
+            }
+
+            const yt = await Innertube.create(ytOptions);
             const videoInfo = await yt.getInfo(videoId);
 
             // TRÁNH CRASH: Sử dụng Optional Chaining an toàn khi parse thông tin cơ bản
@@ -75,7 +88,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
             const nodeReadableStream = await videoInfo.download({
                 type: 'audio',
                 quality: 'best',
-                client: 'YTMUSIC' // Giả lập thiết bị di động/YT Music cực kỳ ổn định
+                client: 'TV' // Giả lập thiết bị di động/YT Music cực kỳ ổn định
             });
 
             // BƯỚC 3: Cấu hình luồng đẩy lên Cloudinary
