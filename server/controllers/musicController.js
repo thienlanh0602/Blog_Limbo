@@ -9,7 +9,7 @@ const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
 // Định nghĩa chính xác đường dẫn tới file cookies.txt của bạn
-const cookiesPath = path.join(__dirname, '../cookies.txt'); 
+const cookiesPath = path.resolve(process.cwd(), 'cookies.txt');
 
 // ==========================================
 // 1. HÀM LẤY METADATA (ĐÃ SỬA FLAG COOKIES)
