@@ -8,7 +8,11 @@ const Playlist = require('../models/Playlist');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+// ==========================================
+// 1. HÀM LẤY METADATA (CÓ LOG CHI TIẾT)
+// ==========================================
 const getVideoMetadata = async (youtubeUrl) => {
+    console.log(`\n[METADATA] >>> Bắt đầu lấy thông tin từ YouTube URL: ${youtubeUrl}`);
     try {
         const meta = await youtubeDl(youtubeUrl, {
             dumpSingleJson: true,
@@ -16,37 +20,97 @@ const getVideoMetadata = async (youtubeUrl) => {
             preferFreeFormats: true
         });
 
+        console.log(`[METADATA] <<< Lấy thông tin thành công!`);
+        console.log(`  - Tiêu đề: "${meta.title}"`);
+        console.log(`  - Thời lượng: ${meta.duration} giây`);
+        console.log(`  - Thumbnail: ${meta.thumbnail ? "Có" : "Không có"}`);
+
         return {
             title: meta.title,
             duration: meta.duration,
             thumbnail: meta.thumbnail
         };
     } catch (error) {
+        console.error(`[METADATA ERROR] Xảy ra lỗi khi lấy metadata từ YouTube:`, error.message);
         throw new Error("Không thể lấy thông tin metadata từ YouTube: " + error.message);
     }
 };
 
+// ==========================================
+// 2. HÀM STREAM & CONVERT (LOG TỪNG BƯỚC CHỐNG TREO)
+// ==========================================
 const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) => {
     return new Promise(async (resolve, reject) => {
         let ytProcess = null;
+        let ffmpegCommand = null;
+        let isFinished = false; // Flag kiểm soát tránh gọi trùng lặp
+
+        // Hàm dọn dẹp tiến trình con khi kết thúc hoặc lỗi
+        const cleanup = () => {
+            console.log("[CLEANUP] Đang dọn dẹp tiến trình chạy ngầm...");
+            if (ytProcess) {
+                try {
+                    ytProcess.kill('SIGKILL');
+                    console.log("  - Đã đóng tiến trình yt-dlp.");
+                } catch (e) {
+                    console.error("  - Lỗi khi đóng yt-dlp:", e.message);
+                }
+                ytProcess = null;
+            }
+            if (ffmpegCommand) {
+                try {
+                    ffmpegCommand.kill('SIGKILL');
+                    console.log("  - Đã đóng tiến trình FFmpeg.");
+                } catch (e) {
+                    console.error("  - Lỗi khi đóng FFmpeg:", e.message);
+                }
+                ffmpegCommand = null;
+            }
+        };
+
         try {
-            console.log("1. Đang lấy thông tin video...");
+            console.log("\n[STREAM] --- BẮT ĐẦU QUÁ TRÌNH TẢI & CONVERT NHẠC ---");
+            
+            // BƯỚC 1: Lấy Metadata
+            console.log("[STREAM] Bước 1: Đang lấy thông tin video...");
             const metaData = await getVideoMetadata(youtubeUrl);
 
             if (metaData.duration > 600) {
+                console.warn(`[STREAM LIMIT] Video quá dài (${metaData.duration}s). Từ chối xử lý.`);
                 return reject(new Error("Video quá dài! Vui lòng chọn video ngắn hơn 10 phút để hệ thống xử lý mượt mà."));
             }
 
-            console.log("2. Khởi tạo luồng tải Audio bằng yt-dlp...");
+            // BƯỚC 2: Khởi tạo yt-dlp
+            console.log("[STREAM] Bước 2: Khởi tạo luồng tải Audio bằng yt-dlp...");
             ytProcess = youtubeDl.exec(youtubeUrl, {
-                output: '-',     
+                output: '-', 
                 format: 'bestaudio',
                 noWarnings: true
             });
 
             const youtubeAudioStream = ytProcess.stdout;
 
-            console.log("3. Thiết lập cấu hình truyền luồng lên Cloudinary...");
+            // Bắt lỗi luồng tải của yt-dlp
+            ytProcess.on('error', (err) => {
+                console.error("[STREAM ERROR] Lỗi tiến trình con yt-dlp:", err.message);
+                if (!isFinished) {
+                    isFinished = true;
+                    cleanup();
+                    reject(new Error("Lỗi luồng tải dữ liệu từ YouTube: " + err.message));
+                }
+            });
+
+            youtubeAudioStream.on('error', (err) => {
+                console.error("[STREAM ERROR] Lỗi luồng stream stdout của yt-dlp:", err.message);
+                if (!isFinished) {
+                    isFinished = true;
+                    cleanup();
+                    reject(new Error("Lỗi đọc dữ liệu âm thanh từ YouTube"));
+                }
+            });
+
+            // BƯỚC 3: Thiết lập Cloudinary Stream
+            console.log("[STREAM] Bước 3: Thiết lập luồng tải lên Cloudinary...");
             const cloudinaryUploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'youtube_mp3_tracks',
@@ -55,12 +119,20 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                 },
                 async (cloudinaryError, cloudinaryResult) => {
                     if (cloudinaryError) {
-                        console.error("Lỗi luồng upload Cloudinary:", cloudinaryError);
-                        return reject(new Error("Lỗi truyền dữ liệu lên Cloudinary"));
+                        console.error("[CLOUDINARY ERROR] Upload thất bại:", cloudinaryError);
+                        if (!isFinished) {
+                            isFinished = true;
+                            cleanup();
+                            return reject(new Error("Lỗi truyền dữ liệu lên Cloudinary"));
+                        }
                     }
 
+                    // BƯỚC 4: Lưu vào DB
                     try {
-                        console.log("4. Đang lưu thông tin vào MongoDB...");
+                        console.log("[STREAM] Bước 4: Upload Cloudinary thành công! Đang lưu thông tin vào MongoDB...");
+                        console.log(`  - Cloudinary URL: ${cloudinaryResult.secure_url}`);
+                        console.log(`  - Public ID: ${cloudinaryResult.public_id}`);
+
                         const minutes = Math.floor(metaData.duration / 60);
                         const seconds = metaData.duration % 60;
                         const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
@@ -75,62 +147,105 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                         });
 
                         const savedMusic = await newMusic.save();
+                        console.log(`[DATABASE] Đã lưu bài hát mới vào DB với ID: ${savedMusic._id}`);
 
                         if (playlistId) {
-                            console.log(`-> Tiến hành gán bài hát mới vào Playlist ID: ${playlistId}`);
+                            console.log(`[DATABASE] -> Đang gán bài hát vào Playlist ID: ${playlistId}`);
                             await Playlist.findByIdAndUpdate(
                                 playlistId,
                                 { $push: { tracks: savedMusic._id } }
                             );
+                            console.log(`[DATABASE] -> Đã gán vào Playlist thành công!`);
                         }
 
-                        console.log("-> Hoàn tất xử lý dữ liệu bằng Stream qua yt-dlp!");
+                        console.log("[STREAM] --- HOÀN TẤT XỬ LÝ TOÀN BỘ QUY TRÌNH! ---");
+                        isFinished = true;
+                        cleanup(); 
                         resolve(savedMusic);
 
                     } catch (dbError) {
-                        reject(dbError);
+                        console.error("[DATABASE ERROR] Lỗi thao tác MongoDB:", dbError.message);
+                        if (!isFinished) {
+                            isFinished = true;
+                            cleanup();
+                            reject(dbError);
+                        }
                     }
                 }
             );
 
-            ffmpeg(youtubeAudioStream)
+            // Bắt lỗi luồng ghi của Cloudinary
+            cloudinaryUploadStream.on('error', (err) => {
+                console.error("[CLOUDINARY ERROR] Lỗi luồng ghi ghi lên Cloudinary:", err.message);
+                if (!isFinished) {
+                    isFinished = true;
+                    cleanup();
+                    reject(new Error("Lỗi luồng tải lên Cloudinary"));
+                }
+            });
+
+            // BƯỚC 5: Chạy FFmpeg convert và Pipe luồng
+            console.log("[STREAM] Bước 5: Bắt đầu truyền luồng qua FFmpeg để convert sang MP3...");
+            ffmpegCommand = ffmpeg(youtubeAudioStream)
                 .toFormat('mp3')
                 .audioBitrate(128)
                 .on('error', (ffmpegError) => {
-                    console.error('Lỗi trong tiến trình convert của Ffmpeg:', ffmpegError);
-                    if (ytProcess) ytProcess.kill();
+                    if (isFinished) return; // Nếu đã xong hoặc lỗi từ trước thì bỏ qua
+                    console.error('[FFMPEG ERROR] Lỗi tiến trình convert của FFmpeg:', ffmpegError.message);
+                    isFinished = true;
+                    cleanup();
                     reject(new Error("Lỗi chuyển đổi định dạng âm thanh trên RAM"));
-                })
-                .pipe(cloudinaryUploadStream);
+                });
+
+            // Tiến hành nối ống luồng dữ liệu (Pipe)
+            ffmpegCommand.pipe(cloudinaryUploadStream);
+            console.log("[STREAM] >>> Đang chuyển đổi và tải lên đám mây... Vui lòng đợi...");
 
         } catch (error) {
-            if (ytProcess) ytProcess.kill();
-            reject(error);
+            console.error("[STREAM FATAL ERROR] Lỗi nghiêm trọng ngoài ý muốn:", error.message);
+            if (!isFinished) {
+                isFinished = true;
+                cleanup();
+                reject(error);
+            }
         }
     });
 };
 
+// Helper làm sạch link YouTube
 const cleanYoutubeUrl = (url) => {
     if (!url) return null;
+    console.log(`[HELPER] Đang làm sạch link YouTube gốc: ${url}`);
     if (url.includes('youtu.be/')) {
         const videoId = url.split('youtu.be/')[1].split('?')[0];
-        return `https://www.youtube.com/watch?v=${videoId}`;
+        const cleaned = `https://www.youtube.com/watch?v=${videoId}`;
+        console.log(`[HELPER] -> Link rút gọn biến đổi thành: ${cleaned}`);
+        return cleaned;
     }
     if (url.includes('youtube.com/watch')) {
         const urlObj = new URL(url);
         const videoId = urlObj.searchParams.get('v');
         if (videoId) {
-            return `https://www.youtube.com/watch?v=${videoId}`;
+            const cleaned = `https://www.youtube.com/watch?v=${videoId}`;
+            console.log(`[HELPER] -> Link chuẩn hóa thành: ${cleaned}`);
+            return cleaned;
         }
     }
     return url;
 };
 
+// ==========================================
+// 3. API DOWNLOAD & SAVE
+// ==========================================
 const handleDownloadAndSave = async (req, res) => {
+    console.log(`\n[API POST /api/music] Nhận yêu cầu tải nhạc!`);
+    console.log(`  - Body nhận được:`, req.body);
+
     try {
         const { url, playlistId } = req.body;
 
         if (!url) {
+            console.warn(`[API WARNING] Yêu cầu thiếu URL.`);
             return res.status(400).json({
                 success: false,
                 message: "Vui lòng cung cấp link YouTube hợp lệ!"
@@ -140,6 +255,7 @@ const handleDownloadAndSave = async (req, res) => {
 
         const result = await processYoutubeToCloudinaryAndMongoStream(sanitizedUrl, playlistId);
 
+        console.log(`[API SUCCESS] Gửi phản hồi thành công về cho Client!`);
         return res.status(201).json({
             success: true,
             message: playlistId
@@ -149,6 +265,7 @@ const handleDownloadAndSave = async (req, res) => {
         });
 
     } catch (error) {
+        console.error(`[API ERROR 500] Thất bại tại handleDownloadAndSave:`, error.message);
         return res.status(500).json({
             success: false,
             message: "Có lỗi xảy ra trong quá trình xử lý hệ thống!",
@@ -157,16 +274,20 @@ const handleDownloadAndSave = async (req, res) => {
     }
 };
 
-// 1. Hàm lấy toàn bộ danh sách nhạc (Giữ nguyên)
+// ==========================================
+// 4. API GET ALL MUSIC
+// ==========================================
 const getAllMusic = async (req, res) => {
+    console.log(`\n[API GET /api/music] Đang lấy danh sách nhạc từ Database...`);
     try {
         const musicList = await Music.find().sort({ createdAt: -1 });
+        console.log(`[API SUCCESS] Đã tìm thấy ${musicList.length} bài hát.`);
         return res.status(200).json({
             success: true,
             data: musicList
         });
     } catch (error) {
-        console.error("Lỗi lấy danh sách nhạc tại Controller:", error);
+        console.error("[API ERROR 500] Lỗi lấy danh sách nhạc:", error.message);
         return res.status(500).json({
             success: false,
             message: "Có lỗi xảy ra khi lấy danh sách nhạc!"
@@ -174,21 +295,25 @@ const getAllMusic = async (req, res) => {
     }
 };
 
-// 2. Hàm xóa bài hát theo ID (Giữ nguyên)
+// ==========================================
+// 5. API DELETE MUSIC
+// ==========================================
 const deleteMusic = async (req, res) => {
+    const { id } = req.params;
+    console.log(`\n[API DELETE /api/music/${id}] Nhận yêu cầu xóa bài nhạc!`);
     try {
-        const { id } = req.params;
-
         const musicItem = await Music.findById(id);
         if (!musicItem) {
+            console.warn(`[API WARNING] Không tìm thấy bài hát ID: ${id} trong DB để xóa.`);
             return res.status(404).json({
                 success: false,
                 message: "Không tìm thấy bài hát để xóa!"
             });
         }
 
+        // Xóa file trên Cloudinary
         if (musicItem.cloudinaryPublicId) {
-            console.log(`Đang tiến hành xóa file trên Cloudinary với Public ID: ${musicItem.cloudinaryPublicId}`);
+            console.log(`[CLOUDINARY] Tiến hành xóa file trên Cloudinary với Public ID: ${musicItem.cloudinaryPublicId}`);
 
             await new Promise((resolve, reject) => {
                 cloudinary.uploader.destroy(
@@ -196,10 +321,10 @@ const deleteMusic = async (req, res) => {
                     { resource_type: 'video' },
                     (cloudinaryError, cloudinaryResult) => {
                         if (cloudinaryError) {
-                            console.error("Lỗi khi xóa file trên Cloudinary:", cloudinaryError);
-                            resolve();
+                            console.error("[CLOUDINARY ERROR] Lỗi xóa file:", cloudinaryError.message);
+                            resolve(); // Cho qua để xóa tiếp trong DB
                         } else {
-                            console.log("Kết quả xóa Cloudinary:", cloudinaryResult);
+                            console.log("[CLOUDINARY] Kết quả xóa thành công:", cloudinaryResult);
                             resolve(cloudinaryResult);
                         }
                     }
@@ -207,14 +332,17 @@ const deleteMusic = async (req, res) => {
             });
         }
 
-        // --- THÊM MỚI: Khi bài hát bị xóa, xóa ID của nó khỏi mảng tracks trong tất cả Playlist ---
-        await Playlist.updateMany(
+        // Gỡ khỏi Playlist
+        console.log(`[DATABASE] Đang gỡ bỏ ID bài hát khỏi các Playlist tương ứng...`);
+        const updatePlaylistResult = await Playlist.updateMany(
             { tracks: id },
-            { $pull: { tracks: id } } // Lệnh $pull sẽ gỡ bỏ id khỏi mảng
+            { $pull: { tracks: id } }
         );
-        // -----------------------------------------------------------------------------------
+        console.log(`[DATABASE] Đã cập nhật xong các Playlist (Ảnh hưởng: ${updatePlaylistResult.modifiedCount} playlist).`);
 
+        // Xóa hẳn khỏi DB
         await Music.findByIdAndDelete(id);
+        console.log(`[DATABASE] Đã xóa bài hát ID: ${id} khỏi cơ sở dữ liệu.`);
 
         return res.status(200).json({
             success: true,
@@ -222,7 +350,7 @@ const deleteMusic = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Lỗi xóa bài hát tại Controller:", error);
+        console.error(`[API ERROR 500] Thất bại tại deleteMusic:`, error.message);
         return res.status(500).json({
             success: false,
             message: "Có lỗi xảy ra khi xóa bài hát!"
