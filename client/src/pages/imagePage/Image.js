@@ -138,6 +138,7 @@ function Image() {
                                     position: 'relative',
                                     width: { xs: '90%', sm: '80%', md: '80%' },
                                     overflow: 'hidden',
+                                    borderRadius: '8px',
                                     backgroundColor: '#111',
                                     transition: 'opacity 0.4s ease, filter 0.4s ease',
                                     opacity: hoveredIdx !== null && hoveredIdx !== originalIdx ? 0.4 : 1,
@@ -201,9 +202,8 @@ function Image() {
                                     {item.description && (
                                         <Typography noWrap sx={{
                                             color: 'rgba(255,255,255,0.75)',
-                                            fontWeight: 600,
-                                            fontSize: { xs: 9, md: 10 },
-                                            textTransform: 'uppercase',
+                                            fontWeight: 400,
+                                            fontSize: { xs: 9, md: 12 },
                                             letterSpacing: '0.4px',
                                             maxWidth: '50%',
                                             flexShrink: 0,
