@@ -63,9 +63,32 @@ const processYoutubeToCloudinaryAndMongoLocalFile = async (youtubeUrl, playlistI
             try {
                 const cookiePath = path.join(__dirname, '../cookies.json'); 
                 if (fs.existsSync(cookiePath)) {
-                    const cookieData = JSON.parse(fs.readFileSync(cookiePath, 'utf8'));
-                    ytOptions.cookie = cookieData;
-                    console.log("  -> Đã nạp thành công Cookies tài khoản!");
+                    const cookieContent = fs.readFileSync(cookiePath, 'utf8').trim();
+                    
+                    try {
+                        // Thử parse xem file có phải dạng JSON không
+                        const parsedCookies = JSON.parse(cookieContent);
+                        
+                        if (Array.isArray(parsedCookies)) {
+                            // Nếu cookies là một mảng JSON (xuất từ EditThisCookie / Cookie-Editor)
+                            // Tiến hành chuyển thành chuỗi định dạng "name=value; name2=value2"
+                            ytOptions.cookie = parsedCookies
+                                .map(c => `${c.name || c.key}=${c.value}`)
+                                .join('; ');
+                            console.log("  -> Đã chuyển đổi thành công JSON Cookies mảng sang định dạng chuỗi!");
+                        } else if (typeof parsedCookies === 'object' && parsedCookies !== null) {
+                            // Nếu là Object JSON thông thường
+                            ytOptions.cookie = JSON.stringify(parsedCookies);
+                            console.log("  -> Đã nạp thành công JSON Cookies đối tượng!");
+                        } else {
+                            ytOptions.cookie = cookieContent;
+                        }
+                    } catch (e) {
+                        // Nếu không phải là JSON hợp lệ (có thể là chuỗi Cookie Header hoặc chuỗi Netscape thô)
+                        ytOptions.cookie = cookieContent;
+                        console.log("  -> Đã nạp thành công Cookies dạng chuỗi thô!");
+                    }
+                    console.log("  -> Đã xử lý xong Cookies tài khoản!");
                 }
             } catch (cookieErr) {
                 console.warn("  [COOKIE WARNING] Không nạp được cookies:", cookieErr.message);
