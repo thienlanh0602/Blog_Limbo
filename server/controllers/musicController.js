@@ -1,85 +1,32 @@
 const path = require('path');
 const fs = require('fs');
 const ffmpeg = require('fluent-ffmpeg');
+const { Innertube } = require('youtubei.js'); // Import thư viện InnerTube bypass chất lượng cao
 const cloudinary = require('../config/cloudinary');
 const Music = require('../models/Music');
 const Playlist = require('../models/Playlist');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-// ==========================================
-// 1. HÀM LẤY LUỒNG AUDIO DIRECT (BYPASS YT-DLP)
-// ==========================================
-const getDirectAudioUrlAndMetadata = async (youtubeUrl) => {
-    console.log(`\n[BYPASS-API] >>> Đang lấy luồng audio bypass cho URL: ${youtubeUrl}`);
-    const videoId = cleanYoutubeUrl(youtubeUrl).split('v=')[1];
-
-    // Thử danh sách các API Gateway chất lượng cao để lấy trực tiếp link audio stream từ YouTube
-    const streamGateways = [
-        `https://cobalt-api.lunes.host`,
-        `https://api.cobalt.tools`,
-        `https://cobalt.shas.moe`
-    ];
-
-    for (const gateway of streamGateways) {
-        console.log(`  -> Thử lấy luồng audio từ Gateway: ${gateway}`);
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 giây timeout
-
-            const response = await fetch(gateway, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    url: youtubeUrl,
-                    videoQuality: '720', // Thiết lập chung
-                    audioFormat: 'best', // Lấy audio chất lượng cao nhất
-                    audioOnly: true,     // Chỉ lấy audio
-                    disableMetadata: false
-                }),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.url) {
-                    console.log(`[BYPASS-API] <<< Lấy luồng trực tiếp THÀNH CÔNG từ ${gateway}!`);
-                    
-                    // Lấy thông tin video thông qua OEMBED của YouTube hoặc gán mặc định
-                    let title = "YouTube Audio Track";
-                    try {
-                        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`);
-                        if (oembedRes.ok) {
-                            const oembedData = await oembedRes.json();
-                            title = oembedData.title;
-                        }
-                    } catch (e) {
-                        console.warn("[METADATA WARNING] Không lấy được tiêu đề chuẩn, dùng tiêu đề gốc.");
-                    }
-
-                    return {
-                        audioStreamUrl: data.url, // Link luồng audio trực tiếp (không bị chặn IP)
-                        title: title,
-                        duration: 240, // Giá trị tượng trưng (FFmpeg sẽ tải đến khi hết luồng thực tế)
-                        thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                    };
-                }
-            }
-        } catch (err) {
-            console.warn(`  [GATEWAY WARNING] Trạm ${gateway} thất bại: ${err.message}`);
+// Helper chuẩn hóa URL YouTube để lấy Video ID chính xác
+const cleanYoutubeUrl = (url) => {
+    if (!url) return null;
+    if (url.includes('youtu.be/')) {
+        const videoId = url.split('youtu.be/')[1].split('?')[0];
+        return `https://www.youtube.com/watch?v=${videoId}`;
+    }
+    if (url.includes('youtube.com/watch')) {
+        const urlObj = new URL(url);
+        const videoId = urlObj.searchParams.get('v');
+        if (videoId) {
+            return `https://www.youtube.com/watch?v=${videoId}`;
         }
     }
-
-    throw new Error("Không thể trích xuất luồng âm thanh từ bài hát này. YouTube đang thắt chặt bảo mật, hãy thử lại bài hát khác!");
+    return url;
 };
 
 // ==========================================
-// 2. TIẾN TRÌNH STREAM QUA FFMPEG LÊN CLOUDINARY
+// 1. TIẾN TRÌNH STREAM QUA FFMPEG LÊN CLOUDINARY
 // ==========================================
 const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) => {
     return new Promise(async (resolve, reject) => {
@@ -100,14 +47,33 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
         };
 
         try {
-            console.log("\n[STREAM] --- BẮT ĐẦU TIẾN TRÌNH STREAM DỮ LIỆU SẠCH ---");
+            console.log("\n[STREAM] --- BẮT ĐẦU TIẾN TRÌNH STREAM DỮ LIỆU SẠCH (YOUTUBEI.JS) ---");
+            
+            const sanitizedUrl = cleanYoutubeUrl(youtubeUrl);
+            const videoId = sanitizedUrl.split('v=')[1];
 
-            // BƯỚC 1: Lấy link audio direct từ cổng bypass
-            console.log("[STREAM] Bước 1: Thu thập metadata & luồng trực tiếp...");
-            const mediaData = await getDirectAudioUrlAndMetadata(youtubeUrl);
+            // BƯỚC 1: Khởi tạo InnerTube Client & Thu thập metadata
+            console.log("[STREAM] Bước 1: Đang khởi tạo InnerTube Client và lấy metadata...");
+            const yt = await Innertube.create();
+            const videoInfo = await yt.getInfo(videoId);
 
-            // BƯỚC 2: Cấu hình cổng nhận của Cloudinary
-            console.log("[STREAM] Bước 2: Đang mở cổng truyền lên Cloudinary...");
+            const title = videoInfo.basic_info.title || "YouTube Audio Track";
+            const durationSec = videoInfo.basic_info.duration || 240; // Mặc định 240s nếu không lấy được
+            const thumbnail = videoInfo.basic_info.thumbnail[0]?.url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+            console.log(`[YOUTUBE-INFO] Tiêu đề: ${title}`);
+            console.log(`[YOUTUBE-INFO] Thời lượng: ${durationSec} giây`);
+
+            // BƯỚC 2: Trích xuất luồng tải Audio trực tiếp từ YouTube
+            console.log("[STREAM] Bước 2: Đang lấy luồng âm thanh trực tiếp từ YouTube...");
+            const nodeReadableStream = await videoInfo.download({
+                type: 'audio',
+                quality: 'best',
+                client: 'YTMUSIC' // Giả lập YouTube Music Client để tăng tính ổn định
+            });
+
+            // BƯỚC 3: Cấu hình luồng đẩy lên Cloudinary
+            console.log("[STREAM] Bước 3: Đang mở cổng truyền lên Cloudinary...");
             const cloudinaryUploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'youtube_mp3_tracks',
@@ -124,19 +90,19 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                         }
                     }
 
-                    // BƯỚC 3: Lưu bản ghi vào Database
+                    // BƯỚC 4: Lưu thông tin bản ghi vào Database
                     try {
-                        console.log("[STREAM] Bước 3: Tải lên Cloudinary thành công! Đang lưu vào Database...");
+                        console.log("[STREAM] Bước 4: Tải lên Cloudinary thành công! Đang lưu vào Database...");
                         
-                        const minutes = Math.floor(mediaData.duration / 60);
-                        const seconds = mediaData.duration % 60;
+                        const minutes = Math.floor(durationSec / 60);
+                        const seconds = durationSec % 60;
                         const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
                         const newMusic = new Music({
-                            title: mediaData.title,
-                            youtubeUrl: youtubeUrl,
+                            title: title,
+                            youtubeUrl: sanitizedUrl,
                             duration: formattedDuration,
-                            thumbnail: mediaData.thumbnail,
+                            thumbnail: thumbnail,
                             cloudinaryUrl: cloudinaryResult.secure_url,
                             cloudinaryPublicId: cloudinaryResult.public_id
                         });
@@ -177,10 +143,9 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                 }
             });
 
-            // BƯỚC 4: Chạy FFmpeg convert trực tiếp luồng Audio URL sang MP3
-            console.log("[STREAM] Bước 3: Đang pipe luồng âm thanh trực tiếp từ API sang FFmpeg...");
-            
-            ffmpegCommand = ffmpeg(mediaData.audioStreamUrl)
+            // BƯỚC 5: Nạp trực tiếp stream từ InnerTube vào FFmpeg để chuyển sang MP3
+            console.log("[STREAM] Bước 5: Đang pipe luồng âm thanh qua FFmpeg convert...");
+            ffmpegCommand = ffmpeg(nodeReadableStream)
                 .toFormat('mp3')
                 .audioBitrate(128)
                 .on('error', (ffmpegError) => {
@@ -193,7 +158,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
             // Ghi luồng trực tiếp lên Cloudinary
             ffmpegCommand.pipe(cloudinaryUploadStream);
-            console.log("[STREAM] >>> Đang chuyển mã và tải lên đám mây... Vui lòng đợi...");
+            console.log("[STREAM] >>> Đang chuyển mã sang MP3 và tải lên Cloudinary... Vui lòng chờ...");
 
         } catch (error) {
             console.error("[STREAM FATAL ERROR] Lỗi hệ thống:", error.message);
@@ -206,25 +171,8 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
     });
 };
 
-// Helper chuẩn hóa URL YouTube
-const cleanYoutubeUrl = (url) => {
-    if (!url) return null;
-    if (url.includes('youtu.be/')) {
-        const videoId = url.split('youtu.be/')[1].split('?')[0];
-        return `https://www.youtube.com/watch?v=${videoId}`;
-    }
-    if (url.includes('youtube.com/watch')) {
-        const urlObj = new URL(url);
-        const videoId = urlObj.searchParams.get('v');
-        if (videoId) {
-            return `https://www.youtube.com/watch?v=${videoId}`;
-        }
-    }
-    return url;
-};
-
 // ==========================================
-// 3. API DOWNLOAD & SAVE
+// 2. API DOWNLOAD & SAVE
 // ==========================================
 const handleDownloadAndSave = async (req, res) => {
     console.log(`\n[API POST /api/music] Nhận yêu cầu tải nhạc!`);
@@ -258,7 +206,7 @@ const handleDownloadAndSave = async (req, res) => {
 };
 
 // ==========================================
-// 4. API GET ALL MUSIC
+// 3. API GET ALL MUSIC
 // ==========================================
 const getAllMusic = async (req, res) => {
     try {
@@ -277,7 +225,7 @@ const getAllMusic = async (req, res) => {
 };
 
 // ==========================================
-// 5. API DELETE MUSIC
+// 4. API DELETE MUSIC
 // ==========================================
 const deleteMusic = async (req, res) => {
     const { id } = req.params;
