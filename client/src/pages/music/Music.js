@@ -197,10 +197,17 @@ function calculateTotalPlaylistDuration(tracks) {
 }
 
 function Music() {
-    const [playlists, setPlaylists] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // Ưu tiên đọc dữ liệu đã cache ở localStorage lên trước để hiển thị tức thì (kể cả lúc Offline)
+    const [playlists, setPlaylists] = useState(() => {
+        const cached = localStorage.getItem('offline_playlists');
+        return cached ? JSON.parse(cached) : [];
+    });
+    const [loading, setLoading] = useState(!playlists.length); // Nếu đã có dữ liệu cache thì không cần hiện skeleton quá lâu
 
-    const [currentTrack, setCurrentTrack] = useState(null);
+    const [currentTrack, setCurrentTrack] = useState(() => {
+        const cachedTrack = localStorage.getItem('offline_last_track');
+        return cachedTrack ? JSON.parse(cachedTrack) : null;
+    });
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -258,15 +265,24 @@ function Music() {
                     })
                 );
 
+                // Lưu dữ liệu mới nhất vào LocalStorage để sử dụng khi offline
                 setPlaylists(fullPlaylists);
+                localStorage.setItem('offline_playlists', JSON.stringify(fullPlaylists));
             } catch (error) {
-                console.error("Lỗi khi tải danh sách nhạc playlist:", error);
+                console.warn("Đang offline hoặc lỗi mạng. Sử dụng dữ liệu đã lưu cục bộ.", error);
             } finally {
                 setLoading(false);
             }
         };
         fetchAllPlaylists();
     }, []);
+
+    // Theo dõi bài nhạc đang chạy để lưu lại, khi F5 lại lúc offline vẫn nhớ bài cũ
+    useEffect(() => {
+        if (currentTrack) {
+            localStorage.setItem('offline_last_track', JSON.stringify(currentTrack));
+        }
+    }, [currentTrack]);
 
     useEffect(() => {
         let cancelled = false;
@@ -299,8 +315,6 @@ function Music() {
         pageEl.addEventListener('wheel', onWheel, { passive: false });
         return () => pageEl.removeEventListener('wheel', onWheel);
     }, [playlists.length]);
-
-    // ĐÃ LOẠI BỎ HOÀN TOÀN AUDIO GRAPH GÂY KHÓA TRÊN IOS
 
     useEffect(() => {
         if (currentTrack && audioRef.current) {
