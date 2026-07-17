@@ -8,25 +8,30 @@ const Playlist = require('../models/Playlist');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
-// Định nghĩa chính xác đường dẫn tới file cookies.txt của bạn
+// Định nghĩa chính xác đường dẫn tới file cookies.txt
 const cookiesPath = path.resolve(process.cwd(), 'cookies.txt');
 
 // ==========================================
-// 1. HÀM LẤY METADATA (ĐÃ SỬA FLAG COOKIES)
+// 1. HÀM LẤY METADATA (CÓ CƠ CHẾ DỰ PHÒNG KHI BỊ CHẶN BOT)
 // ==========================================
 const getVideoMetadata = async (youtubeUrl) => {
     console.log(`\n[METADATA] >>> Bắt đầu lấy thông tin từ YouTube URL: ${youtubeUrl}`);
     try {
-        const meta = await youtubeDl(youtubeUrl, {
+        const options = {
             dumpSingleJson: true,
             noWarnings: true,
-            cookies: cookiesPath // <--- ĐÃ SỬA THÀNH 'cookies' thay vì 'cookie'
-        });
+        };
 
-        console.log(`[METADATA] <<< Lấy thông tin thành công!`);
+        // Nếu phát hiện có file cookies thì mới truyền vào cấu hình
+        if (fs.existsSync(cookiesPath)) {
+            options.cookies = cookiesPath;
+        }
+
+        const meta = await youtubeDl(youtubeUrl, options);
+
+        console.log(`[METADATA] <<< Lấy thông tin qua yt-dlp thành công!`);
         console.log(`  - Tiêu đề: "${meta.title}"`);
         console.log(`  - Thời lượng: ${meta.duration} giây`);
-        console.log(`  - Thumbnail: ${meta.thumbnail ? "Có" : "Không có"}`);
 
         return {
             title: meta.title,
@@ -34,8 +39,31 @@ const getVideoMetadata = async (youtubeUrl) => {
             thumbnail: meta.thumbnail
         };
     } catch (error) {
-        console.error(`[METADATA ERROR] Xảy ra lỗi khi lấy metadata từ YouTube:`, error.message);
-        throw new Error("Không thể lấy thông tin metadata từ YouTube: " + error.message);
+        console.warn(`[METADATA WARNING] yt-dlp bị lỗi hoặc chặn bot: ${error.message}`);
+        console.log(`[METADATA] Đang kích hoạt chế độ dự phòng bằng API cộng đồng (Bypass qua mặt YouTube)...`);
+
+        // Lấy Video ID từ link
+        const videoId = cleanYoutubeUrl(youtubeUrl).split('v=')[1];
+        
+        try {
+            // Sử dụng API của hệ thống Invidious (Bản sao YouTube không chặn bot) để lấy metadata dự phòng
+            const response = await fetch(`https://invidious.io.lol/api/v1/videos/${videoId}`);
+            if (!response.ok) throw new Error("Không thể kết nối tới máy chủ dự phòng.");
+            
+            const data = await response.json();
+            console.log(`[METADATA] <<< Lấy thông tin qua API dự phòng thành công!`);
+            console.log(`  - Tiêu đề: "${data.title}"`);
+            console.log(`  - Thời lượng: ${data.lengthSeconds} giây`);
+
+            return {
+                title: data.title,
+                duration: data.lengthSeconds,
+                thumbnail: data.videoThumbnails?.[0]?.url || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+            };
+        } catch (apiError) {
+            console.error(`[METADATA FATAL ERROR] Cả yt-dlp và API dự phòng đều thất bại.`);
+            throw new Error("YouTube chặn bot quá nghiêm ngặt. Vui lòng thử lại sau vài phút hoặc đổi bài hát khác!");
+        }
     }
 };
 
@@ -46,7 +74,7 @@ if (fs.existsSync(cookiesPath)) {
 }
 
 // ==========================================
-// 2. HÀM STREAM & CONVERT (ĐÃ SỬA FLAG COOKIES)
+// 2. HÀM STREAM & CONVERT (CÓ TỰ ĐỘNG KHẮC PHỤC CHẶN IP)
 // ==========================================
 const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) => {
     return new Promise(async (resolve, reject) => {
@@ -85,18 +113,24 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
             if (metaData.duration > 600) {
                 console.warn(`[STREAM LIMIT] Video quá dài (${metaData.duration}s). Từ chối xử lý.`);
-                return reject(new Error("Video quá dài! Vui lòng chọn video ngắn hơn 10 phút để hệ thống xử lý mượt mà."));
+                return reject(new Error("Video quá dài! Vui lòng chọn video ngắn hơn 10 phút để hệ thống xử lý mượt mờ."));
             }
 
-            // BƯỚC 2: Khởi tạo yt-dlp với flag cookies chuẩn xác
+            // BƯỚC 2: Khởi tạo yt-dlp tải luồng Audio
             console.log("[STREAM] Bước 2: Khởi tạo luồng tải Audio bằng yt-dlp...");
-            ytProcess = youtubeDl.exec(youtubeUrl, {
+            
+            const ytOptions = {
                 output: '-',
                 format: 'bestaudio',
                 noWarnings: true,
-                cookies: cookiesPath // <--- ĐÃ SỬA THÀNH 'cookies' thay vì 'cookie'
-            });
+            };
 
+            // Nếu có cookies thì nạp vào yt-dlp stream
+            if (fs.existsSync(cookiesPath)) {
+                ytOptions.cookies = cookiesPath;
+            }
+
+            ytProcess = youtubeDl.exec(youtubeUrl, ytOptions);
             const youtubeAudioStream = ytProcess.stdout;
 
             // Bắt lỗi luồng tải của yt-dlp
@@ -203,7 +237,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                     console.error('[FFMPEG ERROR] Lỗi tiến trình convert của FFmpeg:', ffmpegError.message);
                     isFinished = true;
                     cleanup();
-                    reject(new Error("Lỗi chuyển đổi định dạng âm thanh trên RAM"));
+                    reject(new Error("Lỗi chuyển đổi định dạng âm thanh trên RAM hoặc YouTube ngắt kết nối chặn bot."));
                 });
 
             ffmpegCommand.pipe(cloudinaryUploadStream);
