@@ -255,38 +255,6 @@ function Image() {
                     </>
                 )}
             </Box>
-
-            <Modal
-                open={!!selected}
-                onClose={() => setSelected(null)}
-                closeAfterTransition
-                slots={{ backdrop: Backdrop }}
-                slotProps={{ backdrop: { timeout: 500 } }}
-            >
-                <Fade in={!!selected}>
-                    <Box sx={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        maxWidth: '90vw',
-                        maxHeight: '90vh',
-                        bgcolor: 'background.paper',
-                        boxShadow: 24,
-                        p: 1,
-                        borderRadius: '8px',
-                        outline: 'none'
-                    }}>
-                        {selected && (
-                            <img
-                                src={optimizeCloudinaryUrl(getImageSrc(selected), 1200)}
-                                alt="Chi tiết"
-                                style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }}
-                            />
-                        )}
-                    </Box>
-                </Fade>
-            </Modal>
         </PageContainer>
     );
 }

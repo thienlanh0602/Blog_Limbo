@@ -193,16 +193,14 @@ const Nav6 = ({ item }) => {
             <Skeleton variant="rectangular" width={220} height={190} sx={{ borderRadius: '16px', ml: { xs: 0, md: 5 } }} />
           ) : (
             (playlistCover || item?.image?.[0]) && (
-              <CardMedia
+              <Box
                 component="img"
                 src={optimizeCloudinaryUrl(playlistCover || item.image[0], 400)}
                 sx={{
-                  boxShadow: "3px 3px 0px black",
-                  borderRadius: '16px',
-                  width: "100%",  
-                  maxWidth: "220px",
-                  height: "190px",
-                  objectFit: "cover",
+                  width: { xs: 190, sm: 200, md: 220 },
+                  height: { xs: 190, sm: 200, md: 200 },
+                  borderRadius: '12px',
+                  objectFit: 'cover',
                   border: "1px solid black",
                   ml: { xs: 0, md: 5 },
                 }}

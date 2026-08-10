@@ -215,7 +215,16 @@ function Music() {
     const [isMuted, setIsMuted] = useState(false);
     const [isShuffle, setIsShuffle] = useState(false);
     const [repeatMode, setRepeatMode] = useState('off');
-    const [groupColors, setGroupColors] = useState({});
+
+    // Đọc cache màu chủ đạo từ localStorage trước để không phải chờ tính lại mỗi lần F5
+    const [groupColors, setGroupColors] = useState(() => {
+        const cached = localStorage.getItem('offline_group_colors');
+        return cached ? JSON.parse(cached) : {};
+    });
+
+    // Theo dõi ảnh bìa nào đã load xong để hiện/ẩn Skeleton tương ứng
+    const [loadedCovers, setLoadedCovers] = useState({});
+    const [loadedTrackThumbs, setLoadedTrackThumbs] = useState({});
 
     const audioRef = useRef(null);
     const cardsScrollRef = useRef(null);
@@ -239,6 +248,14 @@ function Music() {
 
     const activeTrack = currentTrack || flatTrackList[0] || null;
     const progressPercent = duration ? (currentTime / duration) * 100 : 0;
+
+    const handleCoverLoad = useCallback((id) => {
+        setLoadedCovers(prev => (prev[id] ? prev : { ...prev, [id]: true }));
+    }, []);
+
+    const handleTrackThumbLoad = useCallback((id) => {
+        setLoadedTrackThumbs(prev => (prev[id] ? prev : { ...prev, [id]: true }));
+    }, []);
 
     useEffect(() => {
         const fetchAllPlaylists = async () => {
@@ -294,7 +311,11 @@ function Music() {
                 })
             );
             if (!cancelled) {
-                setGroupColors(prev => ({ ...prev, ...Object.fromEntries(entries) }));
+                setGroupColors(prev => {
+                    const next = { ...prev, ...Object.fromEntries(entries) };
+                    localStorage.setItem('offline_group_colors', JSON.stringify(next));
+                    return next;
+                });
             }
         };
         if (playlists.length > 0) loadColors();
@@ -581,8 +602,10 @@ function Music() {
                     {playlists.map((playlist) => {
                         const playlistId = playlist._id || playlist.name;
                         const hasColorLoaded = groupColors[playlistId];
-                        const colors = hasColorLoaded || { vibrant: 'rgba(255,255,255,0.05)', dark: 'rgba(255,255,255,0.02)' };
+                        // Fallback tối thay vì gần-trắng, tránh "mất hình" / chữ trắng-trên-trắng lúc F5
+                        const colors = hasColorLoaded || { vibrant: '#282828', dark: '#121212', isLight: false };
                         const playlistCover = playlist.thumbnail || 'https://via.placeholder.com/300x300?text=No+Image';
+                        const isCoverLoaded = !!loadedCovers[playlistId];
 
                         return (
                             <Box
@@ -604,16 +627,43 @@ function Music() {
                                     <Grid container spacing={3} alignItems="center" wrap="nowrap">
                                         <Grid item xs="auto" sx={{ flexShrink: 0 }}>
                                             <Box
-                                                component="img"
-                                                src={playlistCover}
                                                 sx={{
+                                                    position: 'relative',
                                                     width: { xs: 90, sm: 110 },
                                                     height: { xs: 90, sm: 110 },
-                                                    borderRadius: '12px',
-                                                    objectFit: 'cover',
-                                                    border: "1px solid black",
+                                                    flexShrink: 0
                                                 }}
-                                            />
+                                            >
+                                                {!isCoverLoaded && (
+                                                    <Skeleton
+                                                        variant="rectangular"
+                                                        width="100%"
+                                                        height="100%"
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            borderRadius: '12px',
+                                                            bgcolor: 'rgba(255,255,255,0.12)'
+                                                        }}
+                                                    />
+                                                )}
+                                                <Box
+                                                    component="img"
+                                                    src={playlistCover}
+                                                    onLoad={() => handleCoverLoad(playlistId)}
+                                                    sx={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        borderRadius: '12px',
+                                                        objectFit: 'cover',
+                                                        border: "1px solid black",
+                                                        display: 'block',
+                                                        opacity: isCoverLoaded ? 1 : 0,
+                                                        transition: 'opacity 0.25s ease'
+                                                    }}
+                                                />
+                                            </Box>
                                         </Grid>
 
                                         <Grid item xs sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left', gap: 0.8, minWidth: 0 }}>
@@ -679,6 +729,7 @@ function Music() {
                                         playlist.tracks?.map((track, index) => {
                                             const isCurrent = currentTrack?._id === track._id;
                                             const isLightBg = colors.isLight;
+                                            const isThumbLoaded = !!loadedTrackThumbs[track._id];
 
                                             return (
                                                 <Box
@@ -709,11 +760,36 @@ function Music() {
                                                     }}>
                                                         {isCurrent && isPlaying ? '♪' : index + 1}
                                                     </Typography>
-                                                    <Box
-                                                        component="img"
-                                                        src={track.thumbnail || 'https://via.placeholder.com/80x80?text=No+Image'}
-                                                        sx={{ width: 40, height: 40, borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }}
-                                                    />
+                                                    <Box sx={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
+                                                        {!isThumbLoaded && (
+                                                            <Skeleton
+                                                                variant="rectangular"
+                                                                width="100%"
+                                                                height="100%"
+                                                                sx={{
+                                                                    position: 'absolute',
+                                                                    top: 0,
+                                                                    left: 0,
+                                                                    borderRadius: '4px',
+                                                                    bgcolor: 'rgba(255,255,255,0.1)'
+                                                                }}
+                                                            />
+                                                        )}
+                                                        <Box
+                                                            component="img"
+                                                            src={track.thumbnail || 'https://via.placeholder.com/80x80?text=No+Image'}
+                                                            onLoad={() => handleTrackThumbLoad(track._id)}
+                                                            sx={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                borderRadius: '4px',
+                                                                objectFit: 'cover',
+                                                                display: 'block',
+                                                                opacity: isThumbLoaded ? 1 : 0,
+                                                                transition: 'opacity 0.2s ease'
+                                                            }}
+                                                        />
+                                                    </Box>
                                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                                         <Typography noWrap sx={{ textAlign: 'left', fontWeight: 600, fontSize: 14, color: isCurrent ? '#4efcd3' : 'white' }}>
                                                             {track.title || 'Không có tiêu đề'}
