@@ -58,110 +58,12 @@ const generateDummyWaveform = (count = 300) => {
     return smoothed.map(v => Math.max(8, Math.min(100, v + (Math.random() - 0.5) * 8)));
 };
 
-const colorCache = new Map();
-
-function rgbToHsl(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h, s, l = (max + min) / 2;
-    if (max === min) {
-        h = s = 0;
-    } else {
-        const d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            default: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-    }
-    return [h, s, l];
-}
-
-function hslToRgb(h, s, l) {
-    let r, g, b;
-    if (s === 0) {
-        r = g = b = l;
-    } else {
-        const hue2rgb = (p, q, t) => {
-            if (t < 0) t += 1;
-            if (t > 1) t -= 1;
-            if (t < 1 / 6) return p + (q - p) * 6 * t;
-            if (t < 1 / 2) return q;
-            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-            return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1 / 3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1 / 3);
-    }
-    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-}
-
-function extractDominantColor(imgUrl) {
-    const fallback = { vibrant: '#282828', dark: '#121212', isLight: false };
-    if (!imgUrl) return Promise.resolve(fallback);
-    if (colorCache.has(imgUrl)) return Promise.resolve(colorCache.get(imgUrl));
-
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-            try {
-                const size = 32;
-                const canvas = document.createElement('canvas');
-                canvas.width = size;
-                canvas.height = size;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, size, size);
-                const data = ctx.getImageData(0, 0, size, size).data;
-
-                let colorMap = [];
-                for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i]; const g = data[i + 1]; const b = data[i + 2]; const a = data[i + 3];
-                    if (a < 150) continue;
-                    const [h, s, l] = rgbToHsl(r, g, b);
-                    if (l < 0.15 || l > 0.85 || s < 0.2) continue;
-                    colorMap.push({ h, s, l });
-                }
-
-                if (colorMap.length === 0) {
-                    colorCache.set(imgUrl, fallback);
-                    return resolve(fallback);
-                }
-
-                colorMap.sort((a, b) => b.s - a.s);
-                let targetColor = colorMap[0];
-                let h = targetColor.h;
-                let s = Math.min(0.95, Math.max(0.75, targetColor.s * 1.3));
-
-                let lVibrant = Math.min(0.38, Math.max(0.24, targetColor.l));
-                const [vr, vg, vb] = hslToRgb(h, s, lVibrant);
-
-                let lDark = Math.min(0.32, Math.max(0.20, lVibrant - 0.05));
-                const [dr, dg, db] = hslToRgb(h, s, lDark);
-
-                const result = {
-                    vibrant: `rgb(${vr}, ${vg}, ${vb})`,
-                    dark: `rgb(${dr}, ${dg}, ${db})`,
-                    isLight: lDark > 0.22
-                };
-
-                colorCache.set(imgUrl, result);
-                resolve(result);
-            } catch (e) {
-                console.warn('Không lấy được màu chủ đạo từ ảnh:', e);
-                colorCache.set(imgUrl, fallback);
-                resolve(fallback);
-            }
-        };
-        img.onerror = () => resolve(fallback);
-        img.src = imgUrl;
-    });
-}
+// Màu cố định cho tất cả card playlist - không tính theo ảnh bìa nữa
+const FIXED_PLAYLIST_COLORS = {
+    vibrant: '#1c1c1e',
+    dark: '#151516',
+    isLight: false
+};
 
 function parseDurationToSeconds(durationStr) {
     if (!durationStr) return 0;
@@ -215,12 +117,6 @@ function Music() {
     const [isMuted, setIsMuted] = useState(false);
     const [isShuffle, setIsShuffle] = useState(false);
     const [repeatMode, setRepeatMode] = useState('off');
-
-    // Đọc cache màu chủ đạo từ localStorage trước để không phải chờ tính lại mỗi lần F5
-    const [groupColors, setGroupColors] = useState(() => {
-        const cached = localStorage.getItem('offline_group_colors');
-        return cached ? JSON.parse(cached) : {};
-    });
 
     // Theo dõi ảnh bìa nào đã load xong để hiện/ẩn Skeleton tương ứng
     const [loadedCovers, setLoadedCovers] = useState({});
@@ -300,27 +196,6 @@ function Music() {
             localStorage.setItem('offline_last_track', JSON.stringify(currentTrack));
         }
     }, [currentTrack]);
-
-    useEffect(() => {
-        let cancelled = false;
-        const loadColors = async () => {
-            const entries = await Promise.all(
-                playlists.map(async (pl) => {
-                    const colors = await extractDominantColor(pl.thumbnail);
-                    return [pl._id || pl.name, colors];
-                })
-            );
-            if (!cancelled) {
-                setGroupColors(prev => {
-                    const next = { ...prev, ...Object.fromEntries(entries) };
-                    localStorage.setItem('offline_group_colors', JSON.stringify(next));
-                    return next;
-                });
-            }
-        };
-        if (playlists.length > 0) loadColors();
-        return () => { cancelled = true; };
-    }, [playlists]);
 
     useEffect(() => {
         const pageEl = pageWrapperRef.current;
@@ -601,9 +476,8 @@ function Music() {
                 >
                     {playlists.map((playlist) => {
                         const playlistId = playlist._id || playlist.name;
-                        const hasColorLoaded = groupColors[playlistId];
-                        // Fallback tối thay vì gần-trắng, tránh "mất hình" / chữ trắng-trên-trắng lúc F5
-                        const colors = hasColorLoaded || { vibrant: '#282828', dark: '#121212', isLight: false };
+                        // Dùng màu đen cố định cho mọi playlist, không tính theo ảnh bìa nữa
+                        const colors = FIXED_PLAYLIST_COLORS;
                         const playlistCover = playlist.thumbnail || 'https://via.placeholder.com/300x300?text=No+Image';
                         const isCoverLoaded = !!loadedCovers[playlistId];
 
@@ -619,7 +493,6 @@ function Music() {
                                     display: 'flex',
                                     flexDirection: 'column',
                                     backgroundColor: colors.vibrant,
-                                    transition: 'background-color 0.6s ease',
                                     border: "1px solid black",
                                 }}
                             >
@@ -710,7 +583,6 @@ function Music() {
                                     minHeight: 0,
                                     overflowY: 'auto',
                                     backgroundColor: colors.dark,
-                                    transition: 'background-color 0.6s ease',
                                     p: 1,
                                     '&::-webkit-scrollbar': { width: '6px' },
                                     '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '10px' },
