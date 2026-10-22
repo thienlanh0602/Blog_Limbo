@@ -23,7 +23,7 @@
     "mongoose": "^8.9.5",
     "multer": "^2.2.0",
     "multer-storage-cloudinary": "^4.0.0",
-    "youtube-dl-exec": "^3.1.8",
+    "youtube-dl-exec": "^3.1.15",
     "youtubei.js": "^17.2.0",
     "ytdl-core": "^4.11.5"
   }

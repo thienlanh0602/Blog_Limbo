@@ -26,8 +26,6 @@ import IntroScreen from '../utils/IntroScreen';
 
 const INTRO_ROUTES = {
   '/': 'Hey',
-  '/music': 'Music',
-  '/image': 'Image',
 };
 
 // Kiểm tra xem lần load trang hiện tại có phải do người dùng nhấn F5 / reload không

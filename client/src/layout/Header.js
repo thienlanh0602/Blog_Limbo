@@ -14,7 +14,13 @@ const navBar = [
     { label: 'DIY', path: '/diy' },
 ];
 
-const COMPACT_HEADER_ROUTES = ['/music', '/image'];
+const COMPACT_HEADER_ROUTES = ['/music', '/image', '/diy' ];
+
+// Màu nền header khi thu nhỏ, theo từng trang (trang không khai báo thì giữ nền mặc định)
+const COMPACT_HEADER_BG = {
+    '/music': '#8F88F5',
+    '/diy': '#FFD666',
+};
 
 function Header() {
     const theme = useTheme();
@@ -26,6 +32,7 @@ function Header() {
 
     const isCompactPage = COMPACT_HEADER_ROUTES.includes(location.pathname);
     const compact = scrolled || isCompactPage;
+    const compactBg = compact ? COMPACT_HEADER_BG[location.pathname] : undefined;
 
     useEffect(() => {
         const handleScroll = () => {
@@ -78,7 +85,19 @@ function Header() {
     };
 
     return (
-        <StyleAppBar showHeader={true} scrolled={compact}>
+        <StyleAppBar
+            showHeader={true}
+            scrolled={compact}
+            sx={compactBg ? {
+                background: compactBg,
+                backdropFilter: 'none',
+                border: 'none',
+                borderBottom: 'none',
+                boxShadow: 'none',
+                outline: 'none',
+                transition: 'background 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+            } : undefined}
+        >
             <StyleToolbar sx={{
                 transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                 minHeight: compact ? { xs: 44, md: 52 } : undefined,

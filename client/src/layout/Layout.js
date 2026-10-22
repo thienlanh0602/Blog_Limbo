@@ -7,7 +7,7 @@ import Footer from './Footer';
 function Layout() {
     const location = useLocation();
     
-    const hideFooterRoutes = ['/music', '/image'];
+    const hideFooterRoutes = ['/music', '/image', '/diy'];
 
     const shouldHideFooter = hideFooterRoutes.includes(location.pathname);
 

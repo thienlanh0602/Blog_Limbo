@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const dns = require("dns");
-const https = require('https'); // Dùng để gửi request ping chuẩn HTTPS của Render
+const https = require('https');
 const http = require('http');
 
 const authRouter = require('./routers/authRouter');
@@ -15,6 +15,7 @@ const homepageRouter = require('./routers/homepageRouter');
 const imageRouter = require('./routers/imageRouter');
 const musicRouter = require('./routers/musicRouter');
 const playlistRouter = require('./routers/playlistRouter');
+const driveRouter = require('./routers/driveRouter');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -48,6 +49,7 @@ app.use('/api/homepage', homepageRouter);
 app.use('/api/image', imageRouter);
 app.use('/api/music', musicRouter);
 app.use('/api/playlist', playlistRouter);
+app.use('/api/drive', driveRouter);
 
 // Hàm tự động ping để giữ server không bị ngủ đông trên Render
 function startKeepAlive() {
