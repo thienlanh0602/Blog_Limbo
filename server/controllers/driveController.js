@@ -159,7 +159,7 @@ const uploadFile = async (req, res) => {
             if (!valid) {
                 await cloudinary.uploader
                     .destroy(req.file.filename, { resource_type: resourceTypeOf(req.file.mimetype) })
-                    .catch(() => {});
+                    .catch(() => { });
                 return res.status(400).json({ message: 'Thư mục đích không tồn tại' });
             }
         }
@@ -259,11 +259,61 @@ const deleteFolder = async (req, res) => {
     }
 };
 
+// 7. ĐỔI TÊN THƯ MỤC (CHỈ ADMIN)
+const renameFolder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({ message: 'id không hợp lệ' });
+        }
+        if (!name || !name.trim()) {
+            return res.status(400).json({ message: 'Tên thư mục không được để trống' });
+        }
+
+        const folder = await Folder.findById(id);
+        if (!folder) return res.status(404).json({ message: 'Thư mục không tồn tại' });
+
+        folder.name = name.trim();
+        await folder.save();
+
+        res.json({ message: 'Đã đổi tên thư mục thành công', folder });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
+// 8. ĐỔI TÊN TỆP TIN (CHỈ ADMIN)
+const renameFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        if (!mongoose.isValidObjectId(id)) {
+            return res.status(400).json({ message: 'id không hợp lệ' });
+        }
+        if (!name || !name.trim()) {
+            return res.status(400).json({ message: 'Tên tệp không được để trống' });
+        }
+
+        const file = await File.findById(id);
+        if (!file) return res.status(404).json({ message: 'Tệp tin không tồn tại' });
+
+        file.name = name.trim();
+        await file.save();
+
+        res.json({ message: 'Đã đổi tên tệp tin thành công', file });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 module.exports = {
     getContents,
     createFolder,
     uploadFile,
     shareFolder,
     deleteFile,
-    deleteFolder
+    deleteFolder,
+    renameFolder,
+    renameFile
 };

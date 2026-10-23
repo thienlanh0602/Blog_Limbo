@@ -110,3 +110,33 @@ export const deleteDriveFolder = async (id) => {
         throw error;
     }
 };
+
+// Đổi tên thư mục
+export const renameDriveFolder = async (folderId, name) => {
+    try {
+        const res = await axios.patch(`${API_URL}/api/drive/folder/${folderId}`, { name }, {
+            headers: {
+                ...getAuthHeaders()
+            }
+        });
+        return res.data;
+    } catch (error) {
+        console.error('Lỗi khi đổi tên thư mục:', error);
+        throw error;
+    }
+};
+
+// Đổi tên tệp tin
+export const renameDriveFile = async (fileId, name) => {
+    try {
+        const res = await axios.patch(`${API_URL}/api/drive/file/${fileId}`, { name }, {
+            headers: {
+                ...getAuthHeaders()
+            }
+        });
+        return res.data;
+    } catch (error) {
+        console.error('Lỗi khi đổi tên tệp tin:', error);
+        throw error;
+    }
+};

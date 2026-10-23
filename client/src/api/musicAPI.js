@@ -27,3 +27,5 @@ export const deleteMusicAdmin = async (id) => {
     const res = await axios.delete(`${API_URL}/api/music/${id}`);
     return res.data;
 };
+
+export const getThumbMusicUrl = (id) => `${API_URL}/api/thumb/${id}`;

@@ -16,6 +16,7 @@ const imageRouter = require('./routers/imageRouter');
 const musicRouter = require('./routers/musicRouter');
 const playlistRouter = require('./routers/playlistRouter');
 const driveRouter = require('./routers/driveRouter');
+const thunbnailRouter = require('./routers/thumb');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -50,6 +51,7 @@ app.use('/api/image', imageRouter);
 app.use('/api/music', musicRouter);
 app.use('/api/playlist', playlistRouter);
 app.use('/api/drive', driveRouter);
+app.use('/api/thumb', thunbnailRouter);
 
 // Hàm tự động ping để giữ server không bị ngủ đông trên Render
 function startKeepAlive() {

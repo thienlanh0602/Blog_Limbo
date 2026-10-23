@@ -92,7 +92,7 @@ function Routers() {
           <Route path='image' element={< Image />} />
           <Route path='music' element={<Music />} />
           <Route path='color' element={<Color />} />
-          <Route path='diy' element={<DIY />} />
+          <Route path='fm' element={<DIY />} />
         </Route>
 
         <Route path='/admin' element={< AdminLayout />} >
@@ -105,7 +105,7 @@ function Routers() {
           <Route path='music' element={< MusicAdmin />} />
           <Route path='color' element={< ColorAdmin />} />
           <Route path='image' element={< ImageAdmin />} />
-          <Route path='diy' element={< DIYAdmin />} />
+          <Route path='fm' element={< DIYAdmin />} />
 
         </Route>
 

@@ -11,15 +11,15 @@ const navBar = [
     { label: 'Music', path: '/music' },
     { label: 'Color', path: '/color' },
     { label: 'Image', path: '/image' },
-    { label: 'DIY', path: '/diy' },
-];
+    { label: 'FM', path: '/fm' },
+]
 
-const COMPACT_HEADER_ROUTES = ['/music', '/image', '/diy' ];
+const COMPACT_HEADER_ROUTES = ['/music', '/image', '/fm' ];
 
 // Màu nền header khi thu nhỏ, theo từng trang (trang không khai báo thì giữ nền mặc định)
 const COMPACT_HEADER_BG = {
-    '/music': '#8F88F5',
-    '/diy': '#FFD666',
+    '/music': '#4EFCD3',
+    '/fm': '#FFD100',
 };
 
 function Header() {

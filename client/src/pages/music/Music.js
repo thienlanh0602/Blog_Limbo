@@ -1,46 +1,29 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import {
-    Box, Grid, Typography, Slider, Stack, Skeleton, IconButton,
-    useTheme, useMediaQuery
-} from '@mui/material';
+import { Box, useTheme, useMediaQuery, GlobalStyles } from '@mui/material';
 import PageContainer from "../../components/layout/PageContainer";
 import { getPlaylists, getPlaylistDetail } from '../../api/playlistAPI';
+import { getSafeThumbnail, FALLBACK_COVER_SVG } from '../music/utils/thumbnail';
 
-const PlayIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#000000"><path d="M8 5v14l11-7z" /></svg>;
-const PauseIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#000000"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>;
-const SkipPreviousIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#000000"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>;
-const SkipNextIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="#000000"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6z" /></svg>;
-const VolumeUpIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 14V10C4 9.45 4.45 9 5 9H8L13.3 4.7c.4-.3.9 0 .9.5V18.8c0 .5-.5.8-.9.5L8 15H5c-.55 0-1-.45-1-1z" fill="#000000" />
-        <path d="M17.5 9.5L19 8M17.5 14.5L19 16M17.5 12H19.5" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
-const VolumeOffIcon = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M4 14V10C4 9.45 4.45 9 5 9H8L13.3 4.7c.4-.3.9 0 .9.5V18.8c0 .5-.5.8-.9.5L8 15H5c-.55 0-1-.45-1-1z" fill="#000000" />
-        <path d="M17.5 10L21.5 14M21.5 10L17.5 14" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
+import { PlaylistCards } from './components/PlaylistCards';
+import { MusicPlayerBar } from './components/MusicPlayerBar';
 
-const ShuffleIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
-    </svg>
-);
+// Đọc/ghi localStorage an toàn (dữ liệu hỏng hoặc đầy bộ nhớ sẽ không làm sập trang)
+const readCache = (key, fallback) => {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch {
+        return fallback;
+    }
+};
 
-const RepeatIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
-    </svg>
-);
-
-const RepeatOneIcon = () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
-        <text x="12" y="14.2" fontSize="8" fontWeight="800" textAnchor="middle" fill="currentColor" stroke="none">1</text>
-    </svg>
-);
+const writeCache = (key, value) => {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {
+        console.warn(`Không thể lưu cache "${key}":`, err);
+    }
+};
 
 const generateDummyWaveform = (count = 300) => {
     const raw = [];
@@ -58,58 +41,11 @@ const generateDummyWaveform = (count = 300) => {
     return smoothed.map(v => Math.max(8, Math.min(100, v + (Math.random() - 0.5) * 8)));
 };
 
-// Màu cố định cho tất cả card playlist - không tính theo ảnh bìa nữa
-const FIXED_PLAYLIST_COLORS = {
-    vibrant: '#1c1c1e',
-    dark: '#151516',
-    isLight: false
-};
-
-function parseDurationToSeconds(durationStr) {
-    if (!durationStr) return 0;
-    const parts = durationStr.split(':').map(Number);
-    if (parts.some(isNaN)) return 0;
-
-    if (parts.length === 2) {
-        return parts[0] * 60 + parts[1];
-    } else if (parts.length === 3) {
-        return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    }
-    return 0;
-}
-
-function calculateTotalPlaylistDuration(tracks) {
-    if (!tracks || tracks.length === 0) return "0 ph";
-
-    const totalSeconds = tracks.reduce((sum, track) => {
-        return sum + parseDurationToSeconds(track.duration);
-    }, 0);
-
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    if (hours > 0) {
-        return `${hours} giờ ${minutes} phút`;
-    }
-    if (minutes > 0) {
-        return `${minutes} phút ${seconds > 0 ? `${seconds} giây` : ''}`.trim();
-    }
-    return `${seconds} giây`;
-}
-
 function Music() {
-    // Ưu tiên đọc dữ liệu đã cache ở localStorage lên trước để hiển thị tức thì (kể cả lúc Offline)
-    const [playlists, setPlaylists] = useState(() => {
-        const cached = localStorage.getItem('offline_playlists');
-        return cached ? JSON.parse(cached) : [];
-    });
-    const [loading, setLoading] = useState(!playlists.length); // Nếu đã có dữ liệu cache thì không cần hiện skeleton quá lâu
+    const [playlists, setPlaylists] = useState(() => readCache('offline_playlists', []));
+    const [loading, setLoading] = useState(() => readCache('offline_playlists', []).length === 0);
 
-    const [currentTrack, setCurrentTrack] = useState(() => {
-        const cachedTrack = localStorage.getItem('offline_last_track');
-        return cachedTrack ? JSON.parse(cachedTrack) : null;
-    });
+    const [currentTrack, setCurrentTrack] = useState(() => readCache('offline_last_track', null));
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -118,12 +54,10 @@ function Music() {
     const [isShuffle, setIsShuffle] = useState(false);
     const [repeatMode, setRepeatMode] = useState('off');
 
-    // Theo dõi ảnh bìa nào đã load xong để hiện/ẩn Skeleton tương ứng
     const [loadedCovers, setLoadedCovers] = useState({});
     const [loadedTrackThumbs, setLoadedTrackThumbs] = useState({});
 
     const audioRef = useRef(null);
-    const cardsScrollRef = useRef(null);
     const pageWrapperRef = useRef(null);
     const shuffleHistoryRef = useRef([]);
 
@@ -138,12 +72,22 @@ function Music() {
         return baseWaveformData.slice(1, waveformCount);
     }, [baseWaveformData, waveformCount]);
 
-    const flatTrackList = useMemo(() => {
-        return playlists.reduce((acc, pl) => [...acc, ...(pl.tracks || [])], []);
-    }, [playlists]);
+    const flatTrackList = useMemo(
+        () => playlists.flatMap(pl => pl.tracks || []),
+        [playlists]
+    );
 
     const activeTrack = currentTrack || flatTrackList[0] || null;
     const progressPercent = duration ? (currentTime / duration) * 100 : 0;
+
+    // Ảnh nền: luôn đi qua getSafeThumbnail để không gọi thẳng link YouTube bị 404
+    const currentPlaylistCover = useMemo(() => {
+        if (!activeTrack || playlists.length === 0) return FALLBACK_COVER_SVG;
+        const matchedPlaylist = playlists.find(pl =>
+            pl.tracks && pl.tracks.some(track => track._id === activeTrack._id)
+        );
+        return getSafeThumbnail(matchedPlaylist?.thumbnail || playlists[0]?.thumbnail);
+    }, [activeTrack, playlists]);
 
     const handleCoverLoad = useCallback((id) => {
         setLoadedCovers(prev => (prev[id] ? prev : { ...prev, [id]: true }));
@@ -178,9 +122,8 @@ function Music() {
                     })
                 );
 
-                // Lưu dữ liệu mới nhất vào LocalStorage để sử dụng khi offline
                 setPlaylists(fullPlaylists);
-                localStorage.setItem('offline_playlists', JSON.stringify(fullPlaylists));
+                writeCache('offline_playlists', fullPlaylists);
             } catch (error) {
                 console.warn("Đang offline hoặc lỗi mạng. Sử dụng dữ liệu đã lưu cục bộ.", error);
             } finally {
@@ -190,37 +133,47 @@ function Music() {
         fetchAllPlaylists();
     }, []);
 
-    // Theo dõi bài nhạc đang chạy để lưu lại, khi F5 lại lúc offline vẫn nhớ bài cũ
     useEffect(() => {
         if (currentTrack) {
-            localStorage.setItem('offline_last_track', JSON.stringify(currentTrack));
+            writeCache('offline_last_track', currentTrack);
         }
     }, [currentTrack]);
 
+    // Tự phát khi đổi bài: đợi "canplay", bỏ qua AbortError, xử lý NotAllowedError
     useEffect(() => {
-        const pageEl = pageWrapperRef.current;
-        const cardsEl = cardsScrollRef.current;
-        if (!pageEl || !cardsEl) return;
-        const onWheel = (e) => {
-            if (e.target.closest('[data-vertical-scroll]')) return;
-            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-                e.preventDefault();
-                cardsEl.scrollLeft += e.deltaY;
+        const audio = audioRef.current;
+        if (!currentTrack || !audio) return;
+
+        let cancelled = false;
+
+        // Reset tiến trình của bài cũ để thanh chạy không bị giật
+        setCurrentTime(0);
+        setDuration(0);
+
+        const tryPlay = async () => {
+            try {
+                await audio.play();
+                if (!cancelled) setIsPlaying(true);
+            } catch (err) {
+                if (cancelled) return;
+                // AbortError: bị ngắt do đổi bài/load mới -> bình thường, bỏ qua
+                if (err.name === "AbortError") return;
+                // NotAllowedError: bị chặn autoplay -> chờ người dùng bấm Play
+                if (err.name === "NotAllowedError") {
+                    setIsPlaying(false);
+                    return;
+                }
+                console.error("Lỗi phát nhạc:", err);
+                setIsPlaying(false);
             }
         };
-        pageEl.addEventListener('wheel', onWheel, { passive: false });
-        return () => pageEl.removeEventListener('wheel', onWheel);
-    }, [playlists.length]);
 
-    useEffect(() => {
-        if (currentTrack && audioRef.current) {
-            audioRef.current.load();
-            audioRef.current.play()
-                .then(() => {
-                    setIsPlaying(true);
-                })
-                .catch((err) => console.log("Lỗi phát tự động:", err));
-        }
+        audio.addEventListener("canplay", tryPlay, { once: true });
+
+        return () => {
+            cancelled = true;
+            audio.removeEventListener("canplay", tryPlay);
+        };
     }, [currentTrack]);
 
     const handlePlayPause = useCallback(() => {
@@ -232,9 +185,16 @@ function Music() {
         if (!audioRef.current) return;
 
         if (audioRef.current.paused) {
-            audioRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(err => console.log("Lỗi khi gọi play():", err));
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => setIsPlaying(true))
+                    .catch(err => {
+                        if (err.name === "AbortError") return;
+                        console.warn("Không thể phát nhạc:", err.message);
+                        setIsPlaying(false);
+                    });
+            }
         } else {
             audioRef.current.pause();
             setIsPlaying(false);
@@ -264,11 +224,14 @@ function Music() {
         }
     };
 
+    // Kéo thanh âm lượng sẽ tự bỏ tắt tiếng (đồng bộ cả audio.muted)
     const handleVolumeChange = (e, newValue) => {
         setVolume(newValue);
+        const muted = newValue === 0;
+        setIsMuted(muted);
         if (audioRef.current) {
             audioRef.current.volume = newValue / 100;
-            setIsMuted(newValue === 0);
+            audioRef.current.muted = muted;
         }
     };
 
@@ -297,9 +260,9 @@ function Music() {
     const handleNextTrack = useCallback(() => {
         if (!activeTrack || flatTrackList.length === 0) return;
 
-        shuffleHistoryRef.current.push(activeTrack._id);
-
         if (isShuffle) {
+            // Chỉ lưu lịch sử khi đang shuffle để không phình bộ nhớ vô ích
+            shuffleHistoryRef.current.push(activeTrack._id);
             const nextTrack = getRandomTrack(activeTrack._id);
             if (nextTrack) setCurrentTrack(nextTrack);
             return;
@@ -356,28 +319,17 @@ function Music() {
         });
     };
 
-    // ==========================================
-    // TÍCH HỢP MEDIA SESSION API CHO IPHONE (iOS)
-    // ==========================================
     useEffect(() => {
         if (!('mediaSession' in navigator) || !activeTrack) return;
+
+        // Media Session cần URL tuyệt đối; ảnh đi qua backend nên không còn 404 từ ytimg
+        const artSrc = new URL(getSafeThumbnail(activeTrack.thumbnail), window.location.href).href;
 
         navigator.mediaSession.metadata = new MediaMetadata({
             title: activeTrack.title || 'Không có tiêu đề',
             artist: activeTrack.artist || 'Không rõ nghệ sĩ',
             album: 'My Playlist',
-            artwork: [
-                {
-                    src: activeTrack.thumbnail || 'https://via.placeholder.com/300x300?text=No+Image',
-                    sizes: '300x300',
-                    type: 'image/jpeg'
-                },
-                {
-                    src: activeTrack.thumbnail || 'https://via.placeholder.com/512x512?text=No+Image',
-                    sizes: '512x512',
-                    type: 'image/jpeg'
-                }
-            ]
+            artwork: [{ src: artSrc, sizes: '480x360' }]
         });
 
         try {
@@ -401,7 +353,7 @@ function Music() {
             actions.forEach(action => {
                 try {
                     navigator.mediaSession.setActionHandler(action, null);
-                } catch (e) {}
+                } catch (e) { }
             });
         };
     }, [activeTrack, handlePlayPause, handlePrevTrack, handleNextTrack]);
@@ -415,10 +367,12 @@ function Music() {
         if (!('mediaSession' in navigator) || !audioRef.current) return;
         if (typeof navigator.mediaSession.setPositionState === 'function') {
             try {
+                // duration có thể là NaN/Infinity khi chưa tải xong -> bỏ qua để tránh lỗi
+                if (!Number.isFinite(duration) || duration <= 0) return;
                 navigator.mediaSession.setPositionState({
-                    duration: duration || 0,
+                    duration,
                     playbackRate: audioRef.current.playbackRate || 1,
-                    position: currentTime || 0
+                    position: Math.min(currentTime || 0, duration)
                 });
             } catch (err) {
                 console.warn("Không thể cập nhật PositionState:", err);
@@ -427,13 +381,25 @@ function Music() {
     }, [currentTime, duration]);
 
     return (
-        <PageContainer maxWidth={1800} disableGutters>
+        <PageContainer maxWidth={2000} disableGutters>
+            <GlobalStyles styles={{
+                'html, body': {
+                    overflow: 'hidden !important',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    '&::-webkit-scrollbar': {
+                        display: 'none !important',
+                        width: '0px !important'
+                    }
+                }
+            }} />
+
             {activeTrack?.cloudinaryUrl && (
                 <audio
                     ref={audioRef}
                     src={activeTrack.cloudinaryUrl}
-                    playsInline  
-                    preload="auto"       
+                    playsInline
+                    preload="auto"
                     loop={repeatMode === 'one'}
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
@@ -443,459 +409,110 @@ function Music() {
                 />
             )}
 
-            <Box ref={pageWrapperRef} sx={{
-                height: '100dvh',
-                backgroundColor: 'white',
-                color: '#ffffff',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                p: { xs: 2, md: 4 },
-                boxSizing: 'border-box'
-            }}>
-                <Box
-                    ref={cardsScrollRef}
-                    sx={{
-                        mt: 6,
-                        pr: { xs: 0, md: 2 },
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: playlists.length === 1 ? 'center' : 'flex-start',
-                        gap: 6,
+            <Box
+                ref={pageWrapperRef}
+                sx={{
+                    position: 'relative',
+                    height: '100dvh',
+                    width: '100vw',
+                    backgroundColor: '#0a0a0c',
+                    color: '#ffffff',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    p: { xs: 2, md: 4 },
+                    boxSizing: 'border-box',
+
+                    '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
                         width: '100%',
-                        maxWidth: 1800,
-                        overflowX: 'auto',
-                        overflowY: 'hidden',
-                        scrollBehavior: 'smooth',
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none',
-                        '&::-webkit-scrollbar': { display: 'none' }
+                        height: '100%',
+                        backgroundImage: `url("${currentPlaylistCover}")`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: 'grayscale(80%) contrast(140%) brightness(80%) blur(7px)',
+                        zIndex: 0,
+                        willChange: 'background-image',
+                        transform: 'translateZ(0)',
+                    },
+                    '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        background: 'linear-gradient(180deg, rgba(5,5,5,0.45) 0%, rgba(5,5,5,0.7) 55%, rgba(0,0,0,0.96) 100%), radial-gradient(circle at center, transparent 25%, rgba(0,0,0,0.85) 90%)',
+                        zIndex: 1,
+                        pointerEvents: 'none',
+                    }
+                }}
+            >
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0.075,
+                        pointerEvents: 'none',
+                        zIndex: 2,
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
                     }}
-                >
-                    {playlists.map((playlist) => {
-                        const playlistId = playlist._id || playlist.name;
-                        // Dùng màu đen cố định cho mọi playlist, không tính theo ảnh bìa nữa
-                        const colors = FIXED_PLAYLIST_COLORS;
-                        const playlistCover = playlist.thumbnail || 'https://via.placeholder.com/300x300?text=No+Image';
-                        const isCoverLoaded = !!loadedCovers[playlistId];
+                />
 
-                        return (
-                            <Box
-                                key={playlistId}
-                                sx={{
-                                    flex: '0 0 auto',
-                                    width: { xs: "90vw", sm: 600, md: 500 },
-                                    height: '55vh',
-                                    borderRadius: '16px',
-                                    overflow: 'hidden',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    backgroundColor: colors.vibrant,
-                                    border: "1px solid black",
-                                }}
-                            >
-                                <Box sx={{ p: { xs: 2.5, sm: 3.5 } }}>
-                                    <Grid container spacing={3} alignItems="center" wrap="nowrap">
-                                        <Grid item xs="auto" sx={{ flexShrink: 0 }}>
-                                            <Box
-                                                sx={{
-                                                    position: 'relative',
-                                                    width: { xs: 90, sm: 110 },
-                                                    height: { xs: 90, sm: 110 },
-                                                    flexShrink: 0
-                                                }}
-                                            >
-                                                {!isCoverLoaded && (
-                                                    <Skeleton
-                                                        variant="rectangular"
-                                                        width="100%"
-                                                        height="100%"
-                                                        sx={{
-                                                            position: 'absolute',
-                                                            top: 0,
-                                                            left: 0,
-                                                            borderRadius: '12px',
-                                                            bgcolor: 'rgba(255,255,255,0.12)'
-                                                        }}
-                                                    />
-                                                )}
-                                                <Box
-                                                    component="img"
-                                                    src={playlistCover}
-                                                    onLoad={() => handleCoverLoad(playlistId)}
-                                                    sx={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        borderRadius: '12px',
-                                                        objectFit: 'cover',
-                                                        border: "1px solid black",
-                                                        display: 'block',
-                                                        opacity: isCoverLoaded ? 1 : 0,
-                                                        transition: 'opacity 0.25s ease'
-                                                    }}
-                                                />
-                                            </Box>
-                                        </Grid>
+                <Box sx={{
+                    position: 'relative',
+                    zIndex: 3,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    overflow: 'hidden',
+                    width: '100%',
+                    maxWidth: '1400px',
+                    mx: 'auto',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}>
+                    <PlaylistCards
+                        playlists={playlists}
+                        loading={loading}
+                        currentTrack={currentTrack}
+                        isPlaying={isPlaying}
+                        setCurrentTrack={setCurrentTrack}
+                        loadedCovers={loadedCovers}
+                        handleCoverLoad={handleCoverLoad}
+                        loadedTrackThumbs={loadedTrackThumbs}
+                        handleTrackThumbLoad={handleTrackThumbLoad}
+                    />
 
-                                        <Grid item xs sx={{ display: 'flex', flexDirection: 'column', textAlign: 'left', gap: 0.8, minWidth: 0 }}>
-                                            <Typography
-                                                noWrap
-                                                sx={{
-                                                    color: 'white',
-                                                    fontWeight: 800,
-                                                    fontSize: { xs: 22, sm: 26, md: 40 },
-                                                    width: '100%',
-                                                    lineHeight: 1.2
-                                                }}
-                                            >
-                                                {playlist.name || "Không rõ tên"}
-                                            </Typography>
-
-                                            <Typography
-                                                sx={{
-                                                    fontSize: { xs: 12, sm: 13 },
-                                                    color: 'rgba(255,255,255,0.7)',
-                                                    display: '-webkit-box',
-                                                    WebkitLineClamp: 2,
-                                                    WebkitBoxOrient: 'vertical',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    lineHeight: 1.3,
-                                                    minHeight: playlist.description ? 'auto' : '18px'
-                                                }}
-                                            >
-                                                {playlist.description || "Chưa có mô tả cho playlist này."}
-                                            </Typography>
-
-                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
-                                                <Typography sx={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.5)' }}>
-                                                    {playlist.tracks?.length || 0} bài hát • {calculateTotalPlaylistDuration(playlist.tracks)}
-                                                </Typography>
-                                            </Stack>
-                                        </Grid>
-                                    </Grid>
-                                </Box>
-
-                                <Box data-vertical-scroll="true" sx={{
-                                    flex: 1,
-                                    minHeight: 0,
-                                    overflowY: 'auto',
-                                    backgroundColor: colors.dark,
-                                    p: 1,
-                                    '&::-webkit-scrollbar': { width: '6px' },
-                                    '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '10px' },
-                                }}>
-                                    {loading ? (
-                                        Array.from({ length: 1 }).map((_, idx) => (
-                                            <Box key={idx} sx={{ px: 2, py: 1.4, display: 'flex', gap: 2 }}>
-                                                <Skeleton variant="rectangular" width={40} height={40} sx={{ bgcolor: 'rgba(255,255,255,0.05)', borderRadius: '4px' }} />
-                                                <Box sx={{ flex: 1 }}>
-                                                    <Skeleton width="40%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
-                                                    <Skeleton width="20%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
-                                                </Box>
-                                            </Box>
-                                        ))
-                                    ) : (
-                                        playlist.tracks?.map((track, index) => {
-                                            const isCurrent = currentTrack?._id === track._id;
-                                            const isLightBg = colors.isLight;
-                                            const isThumbLoaded = !!loadedTrackThumbs[track._id];
-
-                                            return (
-                                                <Box
-                                                    key={track._id}
-                                                    onClick={() => setCurrentTrack(track)}
-                                                    sx={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 2,
-                                                        px: { xs: 2, sm: 2.5 },
-                                                        py: 1,
-                                                        cursor: 'pointer',
-                                                        borderRadius: '8px',
-                                                        mb: 0.5,
-                                                        backgroundColor: isCurrent
-                                                            ? (isLightBg ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.12)')
-                                                            : 'transparent',
-                                                        '&:hover': {
-                                                            backgroundColor: isLightBg ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.05)'
-                                                        },
-                                                    }}
-                                                >
-                                                    <Typography sx={{
-                                                        width: 20, fontWeight: 500, fontSize: 13,
-                                                        color: isCurrent ? '#4efcd3' : 'rgba(255,255,255,0.4)',
-                                                        flexShrink: 0,
-                                                        textAlign: 'center'
-                                                    }}>
-                                                        {isCurrent && isPlaying ? '♪' : index + 1}
-                                                    </Typography>
-                                                    <Box sx={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
-                                                        {!isThumbLoaded && (
-                                                            <Skeleton
-                                                                variant="rectangular"
-                                                                width="100%"
-                                                                height="100%"
-                                                                sx={{
-                                                                    position: 'absolute',
-                                                                    top: 0,
-                                                                    left: 0,
-                                                                    borderRadius: '4px',
-                                                                    bgcolor: 'rgba(255,255,255,0.1)'
-                                                                }}
-                                                            />
-                                                        )}
-                                                        <Box
-                                                            component="img"
-                                                            src={track.thumbnail || 'https://via.placeholder.com/80x80?text=No+Image'}
-                                                            onLoad={() => handleTrackThumbLoad(track._id)}
-                                                            sx={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                borderRadius: '4px',
-                                                                objectFit: 'cover',
-                                                                display: 'block',
-                                                                opacity: isThumbLoaded ? 1 : 0,
-                                                                transition: 'opacity 0.2s ease'
-                                                            }}
-                                                        />
-                                                    </Box>
-                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                        <Typography noWrap sx={{ textAlign: 'left', fontWeight: 600, fontSize: 14, color: isCurrent ? '#4efcd3' : 'white' }}>
-                                                            {track.title || 'Không có tiêu đề'}
-                                                        </Typography>
-                                                        <Typography noWrap sx={{ textAlign: 'left', fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
-                                                            {track.artist || 'Không rõ nghệ sĩ'}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Typography sx={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>
-                                                        {track.duration || '--:--'}
-                                                    </Typography>
-                                                </Box>
-                                            );
-                                        })
-                                    )}
-                                </Box>
-                            </Box>
-                        );
-                    })}
+                    {activeTrack && (
+                        <MusicPlayerBar
+                            activeWaveformData={activeWaveformData}
+                            progressPercent={progressPercent}
+                            duration={duration}
+                            currentTime={currentTime}
+                            handleSliderChange={handleSliderChange}
+                            formatTime={formatTime}
+                            isShuffle={isShuffle}
+                            setIsShuffle={setIsShuffle}
+                            handlePrevTrack={handlePrevTrack}
+                            handlePlayPause={handlePlayPause}
+                            isPlaying={isPlaying}
+                            handleNextTrack={handleNextTrack}
+                            repeatMode={repeatMode}
+                            cycleRepeatMode={cycleRepeatMode}
+                            toggleMute={toggleMute}
+                            isMuted={isMuted}
+                            volume={volume}
+                            handleVolumeChange={handleVolumeChange}
+                        />
+                    )}
                 </Box>
-
-                {activeTrack && (
-                    <Box sx={{ pt: 2.5, pb: { xs: 3, md: 1.5 }, mt: 'auto', flexShrink: 0, width: '100%' }}>
-                        <Box sx={{ position: 'relative', width: '100%', height: '28px', display: 'flex', alignItems: 'center', mb: { xs: 4, md: 4 } }}>
-                            <Box sx={{ position: 'absolute', width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: '2px', pointerEvents: 'none' }}>
-                                {activeWaveformData.map((height, index) => {
-                                    const isActive = ((index / activeWaveformData.length) * 100) <= progressPercent;
-                                    return (
-                                        <Box key={index} sx={{
-                                            flex: 1,
-                                            height: `${height}%`,
-                                            backgroundColor: isActive ? '#4efcd3' : 'rgba(127, 127, 127, 0.25)',
-                                            borderRadius: '1px',
-                                            transition: 'background-color 0.1s ease'
-                                        }} />
-                                    );
-                                })}
-                            </Box>
-
-                            <Slider
-                                size="small"
-                                min={0}
-                                max={duration || 100}
-                                value={currentTime}
-                                onChange={handleSliderChange}
-                                sx={{
-                                    position: 'absolute', width: '100%', height: { xs: 10, md: 50 }, padding: 0,
-                                    '& .MuiSlider-track': { display: 'none' },
-                                    '& .MuiSlider-rail': { display: 'none' },
-                                    '& .MuiSlider-thumb': {
-                                        width: '2px',
-                                        height: '100%',
-                                        borderRadius: 0,
-                                        backgroundColor: '#4efcd3',
-                                        boxShadow: '0px 0px 8px rgba(255,255,255,0.5)',
-                                        opacity: 1,
-                                        transition: 'none',
-                                        '&:hover, &.Mui-focusVisible, &.Mui-active': {
-                                            boxShadow: '0px 0px 14px #4efcd3',
-                                            backgroundColor: '#4efcd3'
-                                        }
-                                    }
-                                }}
-                            />
-                        </Box>
-
-                        <Grid container alignItems="center" spacing={{ xs: 2, md: 0 }}>
-                            <Grid item xs={6} md={4} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                                <Typography
-                                    component="div"
-                                    sx={{
-                                        fontVariantNumeric: 'tabular-nums',
-                                        color: '#000000',
-                                        fontSize: '0.8rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    {formatTime(currentTime).split('').map((char, index) => (
-                                        <span key={`current-${index}`} style={{ display: 'inline-block', width: char === ':' ? '6px' : '7.5px', textAlign: 'center' }}>
-                                            {char}
-                                        </span>
-                                    ))}
-                                    <span style={{ margin: '0 6px', color: '#000000' }}>/</span>
-                                    {formatTime(duration).split('').map((char, index) => (
-                                        <span key={`duration-${index}`} style={{ display: 'inline-block', width: char === ':' ? '6px' : '7.5px', textAlign: 'center' }}>
-                                            {char}
-                                        </span>
-                                    ))}
-                                </Typography>
-                            </Grid>
-
-                            <Grid item xs={false} md={4} sx={{ display: { xs: 'none', md: 'block' } }}>
-                                <Stack direction="row" gap={2} justifyContent="center" alignItems="center">
-                                    <IconButton
-                                        onClick={() => setIsShuffle(s => !s)}
-                                        disableRipple
-                                        sx={{
-                                            color: isShuffle ? '#4efcd3' : 'rgba(0,0,0,0.4)',
-                                            '&:hover': { color: isShuffle ? '#4efcd3' : '#000000', transform: 'scale(1.15)' }
-                                        }}
-                                    >
-                                        <ShuffleIcon />
-                                    </IconButton>
-
-                                    <IconButton onClick={handlePrevTrack} disableRipple
-                                        sx={{
-                                            color: 'rgba(0,0,0,0.6)',
-                                            '&:hover': { color: '#000', transform: 'scale(1.15)' }
-                                        }}>
-                                        <SkipPreviousIcon />
-                                    </IconButton>
-
-                                    <IconButton onClick={handlePlayPause} disableRipple
-                                        sx={{
-                                            color: 'rgba(0,0,0,0.8)',
-                                            '&:hover': { color: '#000', transform: 'scale(1.15)' }
-                                        }}>
-                                        {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                                    </IconButton>
-
-                                    <IconButton onClick={handleNextTrack} disableRipple
-                                        sx={{
-                                            color: 'rgba(0,0,0,0.6)',
-                                            '&:hover': { color: '#000', transform: 'scale(1.15)' }
-                                        }}>
-                                        <SkipNextIcon />
-                                    </IconButton>
-
-                                    <IconButton
-                                        onClick={cycleRepeatMode}
-                                        disableRipple
-                                        sx={{
-                                            color: repeatMode !== 'off' ? '#4efcd3' : 'rgba(0,0,0,0.4)',
-                                            '&:hover': { color: repeatMode !== 'off' ? '#4efcd3' : '#000000', transform: 'scale(1.15)' }
-                                        }}
-                                    >
-                                        {repeatMode === 'one' ? <RepeatOneIcon /> : <RepeatIcon />}
-                                    </IconButton>
-                                </Stack>
-                            </Grid>
-
-                            <Grid item xs={6} md={4} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <IconButton
-                                        onClick={toggleMute}
-                                        size="small"
-                                        disableRipple
-                                        sx={{
-                                            color: 'rgba(0, 0, 0, 0.6)',
-                                            transition: 'transform 0.2s ease',
-                                            '&:hover': { color: '#000000', transform: 'scale(1.15)' }
-                                        }}
-                                    >
-                                        {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
-                                    </IconButton>
-                                    <Slider
-                                        size="small"
-                                        value={isMuted ? 0 : volume}
-                                        onChange={handleVolumeChange}
-                                        min={0}
-                                        max={100}
-                                        sx={{
-                                            width: { xs: 70, sm: 90 },
-                                            color: '#000000',
-                                            height: 2,
-                                            '& .MuiSlider-track': { backgroundColor: '#000000' },
-                                            '& .MuiSlider-rail': { backgroundColor: 'rgba(0, 0, 0, 0.15)' },
-                                            '& .MuiSlider-thumb': {
-                                                width: '2px',
-                                                height: '12px',
-                                                borderRadius: 0,
-                                                backgroundColor: '#000000',
-                                                transition: 'none',
-                                                '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none', width: '4px' }
-                                            }
-                                        }}
-                                    />
-                                </Stack>
-                            </Grid>
-
-                            <Grid item xs={12} sx={{ display: { xs: 'block', md: 'none' }, mt: 1 }}>
-                                <Stack direction="row" gap={4} justifyContent="center" alignItems="center">
-                                    <IconButton
-                                        onClick={() => setIsShuffle(s => !s)}
-                                        disableRipple
-                                        sx={{
-                                            color: isShuffle ? '#4efcd3' : 'rgba(0,0,0,0.4)',
-                                            '&:hover': { color: isShuffle ? '#4efcd3' : '#000000' }
-                                        }}
-                                    >
-                                        <ShuffleIcon />
-                                    </IconButton>
-
-                                    <IconButton onClick={handlePrevTrack} disableRipple
-                                        sx={{
-                                            color: 'rgba(0,0,0,0.6)',
-                                            '&:hover': { color: '#000' }
-                                        }}>
-                                        <SkipPreviousIcon />
-                                    </IconButton>
-
-                                    <IconButton onClick={handlePlayPause} disableRipple
-                                        sx={{
-                                            color: 'rgba(0,0,0,0.8)',
-                                            '&:hover': { color: '#000' }
-                                        }}>
-                                        {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                                    </IconButton>
-
-                                    <IconButton onClick={handleNextTrack} disableRipple
-                                        sx={{
-                                            color: 'rgba(0,0,0,0.6)',
-                                            '&:hover': { color: '#000' }
-                                        }}>
-                                        <SkipNextIcon />
-                                    </IconButton>
-
-                                    <IconButton
-                                        onClick={cycleRepeatMode}
-                                        disableRipple
-                                        sx={{
-                                            color: repeatMode !== 'off' ? '#4efcd3' : 'rgba(0,0,0,0.4)',
-                                            '&:hover': { color: repeatMode !== 'off' ? '#4efcd3' : '#000000' }
-                                        }}
-                                    >
-                                        {repeatMode === 'one' ? <RepeatOneIcon /> : <RepeatIcon />}
-                                    </IconButton>
-                                </Stack>
-                            </Grid>
-                        </Grid>
-                    </Box>
-                )}
             </Box>
         </PageContainer>
     );
