@@ -6,11 +6,11 @@ export const DriveHeader = ({
   isAdmin,
   shareToken,
   setIsCreateFolderOpen,
-  fileInputRef,
   isUploading,
   uploadState,
   headerBtnSx,
-  C
+  C,
+  setChoiceModalOpen // Nhận prop để mở modal lựa chọn upload
 }) => {
   return (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 4 }}>
@@ -45,8 +45,9 @@ export const DriveHeader = ({
             </Box>
           </Button>
 
+          {/* Nút Tải lên bấm vào sẽ mở Modal lựa chọn (Browser / Link) */}
           <Button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setChoiceModalOpen(true)}
             disabled={isUploading}
             startIcon={<UploadIcon />}
             sx={headerBtnSx}

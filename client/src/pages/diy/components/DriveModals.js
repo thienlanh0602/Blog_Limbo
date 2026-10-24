@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -9,7 +9,8 @@ import {
   MenuItem,
   IconButton,
   Divider,
-  Popover
+  Popover,
+  Stack
 } from '@mui/material';
 import {
   FolderOpenIcon,
@@ -24,6 +25,11 @@ import {
 import { CalendarMonth } from './CalendarMonth';
 import { addMonths, getDownloadUrl, getTypeKey } from '../utils/driveHelpers';
 
+const modalBackdropSx = {
+  backdropFilter: 'blur(2px) !important',
+  WebkitBackdropFilter: 'blur(2px) !important',
+  bgcolor: 'rgba(123, 136, 149, 0.3)'
+};
 
 export const DriveModals = ({
   // State Date
@@ -94,20 +100,58 @@ export const DriveModals = ({
   setShareLinkModal,
   handleCopyShareLink,
 
+  // Props mới cho Modal Lựa chọn Upload & Nhập Link
+  choiceModalOpen,
+  setChoiceModalOpen,
+  fileInputRef,
+  onUploadLink,
+
   C
 }) => {
+  // State phụ quản lý riêng Modal nhập link Google Docs/Sheets
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [linkName, setLinkName] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+
+  // Xử lý khi chọn Tải lên từ máy tính
+  const handleSelectBrowser = () => {
+    setChoiceModalOpen(false);
+    fileInputRef.current?.click();
+  };
+
+  // Xử lý khi chọn Thêm liên kết
+  const handleSelectLinkOption = () => {
+    setChoiceModalOpen(false);
+    setLinkModalOpen(true);
+  };
+
+  // Xử lý Submit Link Google Docs / Sheets
+  const handleSubmitLink = (e) => {
+    e.preventDefault();
+    if (!linkUrl.trim()) return;
+
+    if (onUploadLink) {
+      onUploadLink({
+        name: linkName.trim() || 'Google Document / Sheet',
+        url: linkUrl.trim(),
+        type: 'link'
+      });
+    }
+
+    setLinkName('');
+    setLinkUrl('');
+    setLinkModalOpen(false);
+  };
+
   return (
     <>
       {/* MODAL CHỌN NGÀY */}
       <Modal
-        BackdropProps={{
-          sx: {
-            backdropFilter: 'blur(2px) !important',
-            WebkitBackdropFilter: 'blur(2px) !important',
-            bgcolor: 'rgba(123, 136, 149, 0.3)'
-          }
-        }}
-        disableScrollLock open={isDateOpen} onClose={() => setIsDateOpen(false)}>
+        BackdropProps={{ sx: modalBackdropSx }}
+        disableScrollLock
+        open={isDateOpen}
+        onClose={() => setIsDateOpen(false)}
+      >
         <Box sx={{ ...modalBoxSx, width: 'min(860px, 94vw)', maxHeight: '92vh', overflowY: 'auto', p: 3 }}>
           <Typography sx={{ fontSize: 20, fontWeight: 500, mb: 3 }}>
             Chọn khoảng ngày
@@ -247,14 +291,12 @@ export const DriveModals = ({
       </Menu>
 
       {/* MODAL XEM THỬ FILE */}
-      <Modal disableScrollLock open={Boolean(selectedPreview)} onClose={() => setSelectedPreview(null)}
-        BackdropProps={{
-          sx: {
-            backdropFilter: 'blur(2px) !important',
-            WebkitBackdropFilter: 'blur(2px) !important',
-            bgcolor: 'rgba(123, 136, 149, 0.3)'
-          }
-        }}>
+      <Modal
+        disableScrollLock
+        open={Boolean(selectedPreview)}
+        onClose={() => setSelectedPreview(null)}
+        BackdropProps={{ sx: modalBackdropSx }}
+      >
         <Box sx={{ ...dialogBoxSx, maxWidth: '800px', width: '92vw', maxHeight: '90vh', overflowY: 'auto' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5 }}>
             <Typography
@@ -300,7 +342,13 @@ export const DriveModals = ({
       </Modal>
 
       {/* MODAL TẠO THƯ MỤC */}
-      <Modal disableScrollLock disableRestoreFocus open={isCreateFolderOpen} onClose={handleCloseCreateFolder}>
+      <Modal
+        disableScrollLock
+        disableRestoreFocus
+        open={isCreateFolderOpen}
+        onClose={handleCloseCreateFolder}
+        BackdropProps={{ sx: modalBackdropSx }}
+      >
         <Box sx={{ ...dialogBoxSx, width: 'min(420px, 92vw)' }}>
           <Typography sx={{ fontSize: 20, fontWeight: 700, mb: 3 }}>
             Tạo thư mục mới
@@ -340,8 +388,132 @@ export const DriveModals = ({
         </Box>
       </Modal>
 
+      {/* MODAL 1: LỰA CHỌN HÌNH THỨC TẢI LÊN */}
+      <Modal
+        disableScrollLock
+        disableRestoreFocus
+        open={Boolean(choiceModalOpen)}
+        onClose={() => setChoiceModalOpen(false)}
+        BackdropProps={{ sx: modalBackdropSx }}
+      >
+        <Box sx={{ ...dialogBoxSx, width: 'min(420px, 92vw)' }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, mb: 3 }}>
+            Chọn hình thức tải lên
+          </Typography>
+
+          <Stack spacing={2}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={handleSelectBrowser}
+              sx={{
+                py: 1.5, justifyContent: 'flex-start', px: 2.5, borderRadius: '12px',
+                border: `1px dashed ${C.line}`, color: C.text, fontWeight: 600, textTransform: 'none',
+                '&:hover': {  border: `1px solid ${C.text}` }
+              }}
+            >
+              📁 Tải lên từ máy tính (Browser)
+            </Button>
+
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={handleSelectLinkOption}
+              sx={{
+                py: 1.5, justifyContent: 'flex-start', px: 2.5, borderRadius: '12px',
+                border: `1px dashed ${C.line}`, color: C.text, fontWeight: 600, textTransform: 'none',
+                '&:hover': {  border: `1px solid ${C.text}` }
+              }}
+            >
+              🔗 Thêm liên kết (Google Docs, Sheets...)
+            </Button>
+          </Stack>
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
+            <Button onClick={() => setChoiceModalOpen(false)} sx={outlineBtnSx}>
+              Đóng
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* MODAL 2: NHẬP LINK GOOGLE DOCS / SHEETS */}
+      <Modal
+        disableScrollLock
+        disableRestoreFocus
+        open={linkModalOpen}
+        onClose={() => setLinkModalOpen(false)}
+        BackdropProps={{ sx: modalBackdropSx }}
+      >
+        <Box sx={{ ...dialogBoxSx, width: 'min(460px, 92vw)' }}>
+          <Typography sx={{ fontSize: 20, fontWeight: 700, mb: 3 }}>
+            Thêm liên kết tài liệu
+          </Typography>
+
+          <form onSubmit={handleSubmitLink}>
+            <Stack spacing={2}>
+              {/* Ô nhập tên tài liệu */}
+              <Box
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 1.25, p: 1.25,
+                  borderRadius: '12px', border: `1px dashed ${C.line}`, bgcolor: '#fff',
+                  '&:focus-within': { border: `1px solid ${C.text}` }
+                }}
+              >
+                <TypeBadge type="txt" />
+                <TextField
+                  fullWidth
+                  variant="standard"
+                  placeholder="Tên tài liệu (Ví dụ: Báo cáo Q1)..."
+                  value={linkName}
+                  onChange={(e) => setLinkName(e.target.value)}
+                  InputProps={{ disableUnderline: true, sx: { fontSize: 14, fontWeight: 500 } }}
+                />
+              </Box>
+
+              {/* Ô nhập đường dẫn URL */}
+              <Box
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 1.25, p: 1.25,
+                  borderRadius: '12px', border: `1px dashed ${C.line}`, bgcolor: '#fff',
+                  '&:focus-within': { border: `1px solid ${C.text}` }
+                }}
+              >
+                <LinkIcon />
+                <TextField
+                  fullWidth
+                  autoFocus
+                  variant="standard"
+                  placeholder="Dán đường dẫn (https://docs.google.com/...)..."
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  InputProps={{ disableUnderline: true, sx: { fontSize: 14, fontWeight: 500 } }}
+                />
+              </Box>
+            </Stack>
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
+              <Button onClick={() => setLinkModalOpen(false)} sx={outlineBtnSx}>Hủy</Button>
+              <Button
+                type="submit"
+                disabled={!linkUrl.trim()}
+                sx={{ ...darkBtnSx, '&.Mui-disabled': { bgcolor: C.fieldBg, color: C.textSub } }}
+              >
+                Thêm liên kết
+              </Button>
+            </Box>
+          </form>
+        </Box>
+      </Modal>
+
       {/* MODAL ĐỔI TÊN */}
-      <Modal disableScrollLock disableRestoreFocus open={Boolean(renameTarget)} onClose={() => !isRenaming && setRenameTarget(null)}>
+      <Modal
+        disableScrollLock
+        disableRestoreFocus
+        open={Boolean(renameTarget)}
+        onClose={() => !isRenaming && setRenameTarget(null)}
+        BackdropProps={{ sx: modalBackdropSx }}
+      >
         <Box sx={{ ...dialogBoxSx, width: 'min(420px, 92vw)' }}>
           <Typography sx={{ fontSize: 20, fontWeight: 700, mb: 3 }}>
             {renameTarget?.kind === 'FOLDER' ? 'Đổi tên thư mục' : 'Đổi tên tệp tin'}
@@ -386,6 +558,7 @@ export const DriveModals = ({
         disableRestoreFocus
         open={Boolean(deleteTarget)}
         onClose={() => !isDeleting && setDeleteTarget(null)}
+        BackdropProps={{ sx: modalBackdropSx }}
       >
         <Box sx={{ ...dialogBoxSx, width: 'min(420px, 92vw)' }}>
           <Typography sx={{ fontSize: 20, fontWeight: 500, mb: 1.5 }}>
@@ -412,7 +585,13 @@ export const DriveModals = ({
       </Modal>
 
       {/* MODAL CHIA SẺ LINK */}
-      <Modal disableScrollLock disableRestoreFocus open={Boolean(shareLinkModal)} onClose={() => setShareLinkModal(null)}>
+      <Modal
+        disableScrollLock
+        disableRestoreFocus
+        open={Boolean(shareLinkModal)}
+        onClose={() => setShareLinkModal(null)}
+        BackdropProps={{ sx: modalBackdropSx }}
+      >
         <Box sx={{ ...dialogBoxSx, width: 'min(480px, 92vw)' }}>
           <Typography sx={{ fontSize: 20, fontWeight: 700, mb: 0.5 }}>
             Chia sẻ thư mục

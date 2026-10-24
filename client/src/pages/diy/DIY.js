@@ -133,6 +133,9 @@ const DrivePage = () => {
   const [menu, setMenu] = useState(null);
   const fileInputRef = useRef(null);
   const [uploadState, setUploadState] = useState(null);
+  
+  // State quản lý hiển thị Modal lựa chọn hình thức upload
+  const [choiceModalOpen, setChoiceModalOpen] = useState(false);
 
   const [starredIds, setStarredIds] = useState(() => {
     try {
@@ -155,7 +158,7 @@ const DrivePage = () => {
   const [newName, setNewName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
 
-  // XU LY RENAME FOLDE N FILE
+  // XU LY RENAME FOLDER N FILE
   const handleAskRename = (kind, item) => {
     handleCloseMenu();
     setRenameTarget({ kind, item });
@@ -174,8 +177,6 @@ const DrivePage = () => {
 
     setIsRenaming(true);
     try {
-      console.log("Đang gọi API đổi tên cho:", kind, item._id, "với tên mới:", newName.trim());
-
       if (kind === 'FOLDER') {
         await renameDriveFolder(item._id, newName.trim());
       } else {
@@ -186,19 +187,12 @@ const DrivePage = () => {
       loadData(currentFolderId);
       showToast(kind === 'FOLDER' ? 'Đã đổi tên thư mục' : 'Đã đổi tên tệp tin');
     } catch (err) {
-      console.error("Lỗi đổi tên chi tiết:", err);
-      console.error("Response từ server:", err.response);
-
       const errorMsg = err.response?.data?.message || err.message || 'Đổi tên thất bại!';
       showToast(errorMsg, 'error');
     } finally {
       setIsRenaming(false);
     }
   };
-
-
-
-
 
   const showToast = (message, type = 'success') => {
     clearTimeout(toastTimer.current);
@@ -368,6 +362,13 @@ const DrivePage = () => {
     }
   };
 
+  // Xử lý khi người dùng thêm Link Google Docs / Sheets
+  const handleUploadLink = (linkData) => {
+    console.log("Dữ liệu liên kết Google nhận được:", linkData);
+    // TODO: Gọi API lưu liên kết vào database tại đây (nếu có API hỗ trợ lưu link)
+    showToast(`Đã thêm liên kết: ${linkData.name}`);
+  };
+
   const handleAskDelete = (kind, item) => {
     handleCloseMenu();
     setDeleteTarget({ kind, item });
@@ -492,11 +493,11 @@ const DrivePage = () => {
         isAdmin={isAdmin}
         shareToken={shareToken}
         setIsCreateFolderOpen={setIsCreateFolderOpen}
-        fileInputRef={fileInputRef}
         isUploading={isUploading}
         uploadState={uploadState}
         headerBtnSx={headerBtnSx}
         C={C}
+        setChoiceModalOpen={setChoiceModalOpen}
       />
 
       {/* Breadcrumbs & Filters */}
@@ -535,7 +536,6 @@ const DrivePage = () => {
         C={C}
       />
 
-      {/* Modals & Popovers & Menus */}
       {/* Modals & Popovers & Menus */}
       <DriveModals
         isDateOpen={isDateOpen}
@@ -592,6 +592,13 @@ const DrivePage = () => {
         shareLinkModal={shareLinkModal}
         setShareLinkModal={setShareLinkModal}
         handleCopyShareLink={handleCopyShareLink}
+        
+        // Props cho Modal lựa chọn Upload & Nhập Link
+        choiceModalOpen={choiceModalOpen}
+        setChoiceModalOpen={setChoiceModalOpen}
+        fileInputRef={fileInputRef}
+        onUploadLink={handleUploadLink}
+
         C={C}
       />
 

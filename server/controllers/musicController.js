@@ -1,15 +1,18 @@
-const path = require('path');
-const fs = require('fs');
 const youtubeDl = require('youtube-dl-exec');
 const ffmpeg = require('fluent-ffmpeg');
-const cloudinary = require('../config/cloudinary');
+const cloudinaryConfig = require('../config/cloudinary');
 const Music = require('../models/Music');
-const Playlist = require('../models/Playlist'); 
+const Playlist = require('../models/Playlist');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+// Chịu được cả 2 kiểu export của file config:
+//   module.exports = cloudinary;              -> dùng trực tiếp
+//   module.exports = { cloudinary, upload };  -> lấy .cloudinary
+const cloudinary = cloudinaryConfig.cloudinary || cloudinaryConfig;
+
 // ==========================================
-// 1. HÀM LẤY METADATA (CÓ LOG CHI TIẾT)
+// 1. HÀM LẤY METADATA
 // ==========================================
 const getVideoMetadata = async (youtubeUrl) => {
     console.log(`\n[METADATA] >>> Bắt đầu lấy thông tin từ YouTube URL: ${youtubeUrl}`);
@@ -17,6 +20,7 @@ const getVideoMetadata = async (youtubeUrl) => {
         const meta = await youtubeDl(youtubeUrl, {
             dumpSingleJson: true,
             noWarnings: true,
+            noPlaylist: true,
             preferFreeFormats: true
         });
 
@@ -37,15 +41,17 @@ const getVideoMetadata = async (youtubeUrl) => {
 };
 
 // ==========================================
-// 2. HÀM STREAM & CONVERT (LOG TỪNG BƯỚC CHỐNG TREO)
+// 2. HÀM STREAM & CONVERT
+//    yt-dlp (stdout) -> ffmpeg (mp3) -> Cloudinary -> MongoDB
 // ==========================================
-const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) => {
+const processYoutubeToCloudinaryAndMongoStream = (youtubeUrl, playlistId) => {
     return new Promise(async (resolve, reject) => {
         let ytProcess = null;
         let ffmpegCommand = null;
-        let isFinished = false; // Flag kiểm soát tránh gọi trùng lặp
+        let uploadStream = null;
+        let isFinished = false; // Flag chống gọi resolve/reject trùng lặp
 
-        // Hàm dọn dẹp tiến trình con khi kết thúc hoặc lỗi
+        // Dọn dẹp: LUÔN set isFinished = true TRƯỚC khi gọi hàm này
         const cleanup = () => {
             console.log("[CLEANUP] Đang dọn dẹp tiến trình chạy ngầm...");
             if (ytProcess) {
@@ -66,65 +72,82 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                 }
                 ffmpegCommand = null;
             }
+            if (uploadStream) {
+                try {
+                    if (!uploadStream.destroyed) uploadStream.destroy();
+                } catch (e) {
+                    console.error("  - Lỗi khi đóng luồng Cloudinary:", e.message);
+                }
+                uploadStream = null;
+            }
+        };
+
+        // Hàm báo lỗi dùng chung
+        const fail = (message) => {
+            if (isFinished) return;
+            isFinished = true;
+            cleanup();
+            reject(new Error(message));
         };
 
         try {
             console.log("\n[STREAM] --- BẮT ĐẦU QUÁ TRÌNH TẢI & CONVERT NHẠC ---");
-            
+
+            // Kiểm tra cloudinary đã sẵn sàng chưa (báo lỗi rõ ràng thay vì crash khó hiểu)
+            if (!cloudinary || !cloudinary.uploader) {
+                throw new Error(
+                    "Cloudinary chưa được cấu hình đúng: kiểm tra lại require('../config/cloudinary') " +
+                    "và module.exports trong file config (phải dùng require('cloudinary').v2)."
+                );
+            }
+
             // BƯỚC 1: Lấy Metadata
             console.log("[STREAM] Bước 1: Đang lấy thông tin video...");
             const metaData = await getVideoMetadata(youtubeUrl);
 
             if (metaData.duration > 600) {
                 console.warn(`[STREAM LIMIT] Video quá dài (${metaData.duration}s). Từ chối xử lý.`);
+                isFinished = true;
                 return reject(new Error("Video quá dài! Vui lòng chọn video ngắn hơn 10 phút để hệ thống xử lý mượt mà."));
             }
 
-            // BƯỚC 2: Khởi tạo yt-dlp
+            // BƯỚC 2: Khởi tạo yt-dlp (chỉ 1 tiến trình duy nhất)
             console.log("[STREAM] Bước 2: Khởi tạo luồng tải Audio bằng yt-dlp...");
-            ytProcess = youtubeDl.exec(youtubeUrl, {
-                output: '-', 
-                format: 'bestaudio',
-                noWarnings: true
+            ytProcess = youtubeDl.exec(
+                youtubeUrl,
+                { output: '-', format: 'bestaudio', noPlaylist: true, noWarnings: true },
+                { stdio: ['ignore', 'pipe', 'pipe'] }
+            );
+
+            // Bắt rejection của tiến trình, nếu không Node sẽ crash khi yt-dlp bị kill/lỗi
+            ytProcess.catch((err) => {
+                if (isFinished) return; // đã dọn dẹp chủ động -> bỏ qua
+                console.error("[STREAM ERROR] yt-dlp thất bại:", err.message);
+                fail("Lỗi luồng tải dữ liệu từ YouTube");
             });
 
             const youtubeAudioStream = ytProcess.stdout;
 
-            // Bắt lỗi luồng tải của yt-dlp
-            ytProcess.on('error', (err) => {
-                console.error("[STREAM ERROR] Lỗi tiến trình con yt-dlp:", err.message);
-                if (!isFinished) {
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Lỗi luồng tải dữ liệu từ YouTube: " + err.message));
-                }
-            });
-
             youtubeAudioStream.on('error', (err) => {
-                console.error("[STREAM ERROR] Lỗi luồng stream stdout của yt-dlp:", err.message);
-                if (!isFinished) {
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Lỗi đọc dữ liệu âm thanh từ YouTube"));
-                }
+                console.error("[STREAM ERROR] Lỗi luồng stdout của yt-dlp:", err.message);
+                fail("Lỗi đọc dữ liệu âm thanh từ YouTube");
             });
 
             // BƯỚC 3: Thiết lập Cloudinary Stream
             console.log("[STREAM] Bước 3: Thiết lập luồng tải lên Cloudinary...");
-            const cloudinaryUploadStream = cloudinary.uploader.upload_stream(
+            uploadStream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'youtube_mp3_tracks',
-                    resource_type: 'video',
+                    resource_type: 'video', // Cloudinary xếp audio vào 'video'
                     format: 'mp3'
                 },
                 async (cloudinaryError, cloudinaryResult) => {
-                    if (cloudinaryError) {
+                    // Đã lỗi/dọn dẹp ở nơi khác thì không lưu DB nữa
+                    if (isFinished) return;
+
+                    if (cloudinaryError || !cloudinaryResult) {
                         console.error("[CLOUDINARY ERROR] Upload thất bại:", cloudinaryError);
-                        if (!isFinished) {
-                            isFinished = true;
-                            cleanup();
-                            return reject(new Error("Lỗi truyền dữ liệu lên Cloudinary"));
-                        }
+                        return fail("Lỗi truyền dữ liệu lên Cloudinary");
                     }
 
                     // BƯỚC 4: Lưu vào DB
@@ -133,8 +156,9 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                         console.log(`  - Cloudinary URL: ${cloudinaryResult.secure_url}`);
                         console.log(`  - Public ID: ${cloudinaryResult.public_id}`);
 
-                        const minutes = Math.floor(metaData.duration / 60);
-                        const seconds = metaData.duration % 60;
+                        const totalSeconds = Math.round(metaData.duration);
+                        const minutes = Math.floor(totalSeconds / 60);
+                        const seconds = totalSeconds % 60;
                         const formattedDuration = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 
                         const newMusic = new Music({
@@ -160,7 +184,7 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
 
                         console.log("[STREAM] --- HOÀN TẤT XỬ LÝ TOÀN BỘ QUY TRÌNH! ---");
                         isFinished = true;
-                        cleanup(); 
+                        cleanup();
                         resolve(savedMusic);
 
                     } catch (dbError) {
@@ -174,31 +198,26 @@ const processYoutubeToCloudinaryAndMongoStream = async (youtubeUrl, playlistId) 
                 }
             );
 
-            // Bắt lỗi luồng ghi của Cloudinary
-            cloudinaryUploadStream.on('error', (err) => {
-                console.error("[CLOUDINARY ERROR] Lỗi luồng ghi ghi lên Cloudinary:", err.message);
-                if (!isFinished) {
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Lỗi luồng tải lên Cloudinary"));
-                }
+            uploadStream.on('error', (err) => {
+                console.error("[CLOUDINARY ERROR] Lỗi luồng ghi lên Cloudinary:", err.message);
+                fail("Lỗi luồng tải lên Cloudinary");
             });
 
-            // BƯỚC 5: Chạy FFmpeg convert và Pipe luồng
+            // BƯỚC 5: FFmpeg convert sang MP3 rồi pipe vào Cloudinary
             console.log("[STREAM] Bước 5: Bắt đầu truyền luồng qua FFmpeg để convert sang MP3...");
             ffmpegCommand = ffmpeg(youtubeAudioStream)
-                .toFormat('mp3')
+                .noVideo()
+                .audioCodec('libmp3lame')
                 .audioBitrate(128)
+                .toFormat('mp3')
                 .on('error', (ffmpegError) => {
-                    if (isFinished) return; // Nếu đã xong hoặc lỗi từ trước thì bỏ qua
+                    if (isFinished) return;
                     console.error('[FFMPEG ERROR] Lỗi tiến trình convert của FFmpeg:', ffmpegError.message);
-                    isFinished = true;
-                    cleanup();
-                    reject(new Error("Lỗi chuyển đổi định dạng âm thanh trên RAM"));
+                    fail("Lỗi chuyển đổi định dạng âm thanh");
                 });
 
-            // Tiến hành nối ống luồng dữ liệu (Pipe)
-            ffmpegCommand.pipe(cloudinaryUploadStream);
+            // CHỈ pipe ffmpeg -> Cloudinary (không pipe yt-dlp trực tiếp vào Cloudinary nữa)
+            ffmpegCommand.pipe(uploadStream, { end: true });
             console.log("[STREAM] >>> Đang chuyển đổi và tải lên đám mây... Vui lòng đợi...");
 
         } catch (error) {
@@ -315,7 +334,7 @@ const deleteMusic = async (req, res) => {
         if (musicItem.cloudinaryPublicId) {
             console.log(`[CLOUDINARY] Tiến hành xóa file trên Cloudinary với Public ID: ${musicItem.cloudinaryPublicId}`);
 
-            await new Promise((resolve, reject) => {
+            await new Promise((resolve) => {
                 cloudinary.uploader.destroy(
                     musicItem.cloudinaryPublicId,
                     { resource_type: 'video' },
