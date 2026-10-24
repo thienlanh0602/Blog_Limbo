@@ -68,8 +68,26 @@ export const FolderIcon = ({ size = 48 }) => (
 
 export const FolderOpenIcon = () => (<Svg><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v1H3V7z" /><path d="M3 10h18l-1.6 7.2A2 2 0 0117.45 19H5.2a2 2 0 01-2-1.7L3 10z" /></Svg>);
 export const LinkIcon = () => (<Svg><path d="M10 14a4 4 0 005.66 0l3-3a4 4 0 00-5.66-5.66l-1 1" /><path d="M14 10a4 4 0 00-5.66 0l-3 3a4 4 0 005.66 5.66l1-1" /></Svg>);
-export const EyeIcon = () => (<Svg><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></Svg>);
-export const DownloadIcon = () => (<Svg><path d="M12 4v12" /><path d="M7 11l5 5 5-5" /><path d="M4 20h16" /></Svg>);
+export const EyeIcon = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="1em"
+    height="1em"
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    {...props}
+  >
+    {/* Con ngươi */}
+    <path d="M9.75 12a2.25 2.25 0 1 1 4.5 0a2.25 2.25 0 0 1-4.5 0" />
+    {/* Thân mắt (khoét lỗ tròn bằng evenodd) */}
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M2 12c0 1.64.425 2.191 1.275 3.296C4.972 17.5 7.818 20 12 20s7.028-2.5 8.725-4.704C21.575 14.192 22 13.639 22 12c0-1.64-.425-2.191-1.275-3.296C19.028 6.5 16.182 4 12 4S4.972 6.5 3.275 8.704C2.425 9.81 2 10.361 2 12m10-3.75a3.75 3.75 0 1 0 0 7.5a3.75 3.75 0 0 0 0-7.5"
+    />
+  </svg>
+); export const DownloadIcon = () => (<Svg><path d="M12 4v12" /><path d="M7 11l5 5 5-5" /><path d="M4 20h16" /></Svg>);
 export const TrashIcon = () => (<Svg><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /></Svg>);
 export const CopyIcon = () => (<Svg><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 012-2h9" /></Svg>);
 

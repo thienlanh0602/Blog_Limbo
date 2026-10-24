@@ -151,21 +151,9 @@ const DrivePage = () => {
   const [toast, setToast] = useState({ open: false, type: 'success', message: '' });
   const toastTimer = useRef(null);
 
-  const [isScrolled, setIsScrolled] = useState(false);
-
-
-
   const [renameTarget, setRenameTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
-
-
-  useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   // XU LY RENAME FOLDE N FILE
   const handleAskRename = (kind, item) => {
@@ -489,7 +477,7 @@ const DrivePage = () => {
         color: C.text
       }}
     >
-      <TopBlur visible={isScrolled} />
+      <TopBlur />
 
       <input
         type="file"
