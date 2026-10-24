@@ -71,8 +71,8 @@ export const LinkIcon = () => (<Svg><path d="M10 14a4 4 0 005.66 0l3-3a4 4 0 00-
 export const EyeIcon = (props) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="1em"
-    height="1em"
+    width="1.4em"
+    height="1.4em"
     viewBox="0 0 24 24"
     fill="currentColor"
     aria-hidden="true"

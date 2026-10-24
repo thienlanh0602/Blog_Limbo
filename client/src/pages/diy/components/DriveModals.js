@@ -274,25 +274,11 @@ export const DriveModals = ({
           </Box>
 
           <Box sx={{ textAlign: 'center' }}>
-            {selectedPreview?.fileType?.includes('image') && (
-              <Box component="img" src={selectedPreview.url} alt={selectedPreview.name} sx={{ maxWidth: '100%', maxHeight: '60vh', borderRadius: '12px', objectFit: 'contain' }} />
-            )}
-            {selectedPreview?.fileType?.includes('pdf') && (
-              <Box component="iframe" src={selectedPreview.url} title={selectedPreview.name} sx={{ width: '100%', height: '500px', border: 'none', borderRadius: '8px' }} />
-            )}
-            {selectedPreview?.fileType?.includes('video') && (
-              <Box component="video" controls src={selectedPreview.url} sx={{ width: '100%', maxHeight: '60vh', borderRadius: '8px' }} />
-            )}
-            {selectedPreview?.fileType?.includes('audio') && (
-              <Box component="audio" controls src={selectedPreview.url} sx={{ width: '100%', py: 3 }} />
-            )}
-            {selectedPreview && !/image|pdf|video|audio/.test(selectedPreview.fileType || '') && (
-              <Box sx={{ py: 4, px: 2 }}>
-                <Typography sx={{ fontSize: 14, color: C.textSub, mb: 1 }}>
-                  Không hỗ trợ xem trực tiếp định dạng tệp này.
-                </Typography>
-              </Box>
-            )}
+            <Box sx={{ py: 4, px: 2 }}>
+              <Typography sx={{ fontSize: 14, color: C.textSub, mb: 1 }}>
+                Không hỗ trợ xem trực tiếp tất cả các tệp vì credit không cho phép, tải xuống mà xem.
+              </Typography>
+            </Box>
           </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3, pt: 2, borderTop: `1px dashed ${C.line}` }}>
