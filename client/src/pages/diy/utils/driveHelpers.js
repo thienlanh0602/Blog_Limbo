@@ -28,6 +28,7 @@ export const getTypeKey = (item, isFolder = false) => {
   // Tệp thêm từ link Google: nhận dạng theo loại tài liệu (Docs -> word, Sheets -> excel, Slides -> powerpoint)
   if (item?.isExternal) {
     const t = String(item.externalType || '').toLowerCase();
+    if (t.includes('drive') || t.includes('folder')) return 'drive'; // gdrive (tệp Drive), gfolder (thư mục Drive)
     if (t.includes('sheet')) return 'excel';
     if (t.includes('slide') || t.includes('present')) return 'powerpoint';
     if (t.includes('doc')) return 'word';
@@ -50,7 +51,7 @@ export const getTypeKey = (item, isFolder = false) => {
 // Cập nhật lại getFileLabel để bắt an toàn trường hợp fileType hoặc định dạng lạ
 export const getFileLabel = (file) => {
   if (file?.isExternal) {
-    const labels = { word: 'Docs', excel: 'Sheets', powerpoint: 'Slides' };
+    const labels = { word: 'Docs', excel: 'Sheets', powerpoint: 'Slides', drive: 'Drive' };
     return labels[getTypeKey(file, false)] || 'Link';
   }
   const ext = getExt(file);
