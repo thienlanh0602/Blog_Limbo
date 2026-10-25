@@ -25,14 +25,57 @@ const resourceTypeOf = (mime = '') => {
     return 'raw';
 };
 
-const destroyOnCloudinary = (file) =>
-    cloudinary.uploader.destroy(file.cloudinaryPublicId, {
+const destroyOnCloudinary = (file) => {
+    // File tạo từ link Google (Docs/Sheets...) không có gì trên Cloudinary -> không cần xóa
+    if (file.isExternal || !file.cloudinaryPublicId) return Promise.resolve();
+    return cloudinary.uploader.destroy(file.cloudinaryPublicId, {
         resource_type: resourceTypeOf(file.fileType),
         invalidate: true
     });
+};
 
 // multer đọc tên file theo latin1 nên tiếng Việt bị lỗi font -> đổi lại sang utf8
 const fixFileName = (name = '') => Buffer.from(name, 'latin1').toString('utf8');
+
+// ---------- LINK GOOGLE (Docs / Sheets / Slides / Forms / Drive) ----------
+// Mỗi loại: host, đường dẫn chứa id, mã loại lưu DB, mime chuẩn của Google, nhãn mặc định
+const GOOGLE_KINDS = [
+    { host: 'docs.google.com', re: /^\/document\/(?:u\/\d+\/)?d\/(e\/)?([\w-]+)/, segment: 'document', type: 'gdoc', mime: 'application/vnd.google-apps.document', label: 'Google Docs' },
+    { host: 'docs.google.com', re: /^\/spreadsheets\/(?:u\/\d+\/)?d\/(e\/)?([\w-]+)/, segment: 'spreadsheets', type: 'gsheet', mime: 'application/vnd.google-apps.spreadsheet', label: 'Google Sheets' },
+    { host: 'docs.google.com', re: /^\/presentation\/(?:u\/\d+\/)?d\/(e\/)?([\w-]+)/, segment: 'presentation', type: 'gslide', mime: 'application/vnd.google-apps.presentation', label: 'Google Slides' },
+    { host: 'docs.google.com', re: /^\/forms\/(?:u\/\d+\/)?d\/(e\/)?([\w-]+)/, segment: 'forms', type: 'gform', mime: 'application/vnd.google-apps.form', label: 'Google Forms' },
+    { host: 'drive.google.com', re: /^\/file\/(?:u\/\d+\/)?d\/()([\w-]+)/, segment: 'file', type: 'gdrive', mime: 'application/vnd.google-apps.file', label: 'Google Drive' }
+];
+
+// Trả về { url, previewUrl, type, mime, label, id } hoặc null nếu không phải link Google hợp lệ.
+// Chỉ nhận https + đúng tên miền Google => không thể nhét javascript: / trang lạ vào href hay iframe.
+const parseGoogleLink = (raw) => {
+    let u;
+    try {
+        u = new URL(String(raw || '').trim());
+    } catch {
+        return null;
+    }
+    if (u.protocol !== 'https:' || u.username || u.password) return null;
+
+    const host = u.hostname.toLowerCase();
+    for (const kind of GOOGLE_KINDS) {
+        if (host !== kind.host) continue;
+        const m = u.pathname.match(kind.re);
+        if (!m) continue;
+
+        const isPublished = Boolean(m[1]); // dạng /d/e/<id> (bản "xuất bản lên web") dùng nguyên link gốc
+        const id = m[2];
+        let previewUrl = u.toString();
+        if (!isPublished && ['gdoc', 'gsheet', 'gslide'].includes(kind.type)) {
+            previewUrl = `https://docs.google.com/${kind.segment}/d/${id}/preview`;
+        } else if (!isPublished && kind.type === 'gdrive') {
+            previewUrl = `https://drive.google.com/file/d/${id}/preview`;
+        }
+        return { url: u.toString(), previewUrl, type: kind.type, mime: kind.mime, label: kind.label, id };
+    }
+    return null;
+};
 
 // folderId có nằm trong (hoặc chính là) thư mục được chia sẻ hay không
 const isInsideRoot = async (folderId, rootId) => {
@@ -307,6 +350,44 @@ const renameFile = async (req, res) => {
     }
 };
 
+// 9. THÊM FILE TỪ LINK GOOGLE DOCS / SHEETS / SLIDES / FORMS / DRIVE (CHỈ ADMIN)
+// body: { url, name?, folderId? }
+const createLinkFile = async (req, res) => {
+    try {
+        const info = parseGoogleLink(req.body.url || req.body.link);
+        if (!info) {
+            return res.status(400).json({
+                message: 'Link không hợp lệ. Hãy dán link Google Docs, Sheets, Slides, Forms hoặc Drive (https://docs.google.com/...)'
+            });
+        }
+
+        const folderId = req.body.folderId || req.body.folder || null;
+        if (folderId) {
+            const valid = mongoose.isValidObjectId(folderId) && (await Folder.exists({ _id: folderId }));
+            if (!valid) return res.status(400).json({ message: 'Thư mục đích không tồn tại' });
+        }
+
+        const name = String(req.body.name || req.body.title || '').trim().slice(0, 200)
+            || `${info.label} ${info.id.slice(0, 6)}`;
+
+        const newFile = await File.create({
+            name,
+            folder: folderId,
+            url: info.url,
+            previewUrl: info.previewUrl,
+            fileType: info.mime,
+            size: 0,
+            isExternal: true,
+            externalType: info.type,
+            externalId: info.id
+        });
+
+        res.status(201).json(newFile);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 module.exports = {
     getContents,
     createFolder,
@@ -315,5 +396,6 @@ module.exports = {
     deleteFile,
     deleteFolder,
     renameFolder,
-    renameFile
+    renameFile,
+    createLinkFile
 };

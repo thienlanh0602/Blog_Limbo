@@ -140,3 +140,25 @@ export const renameDriveFile = async (fileId, name) => {
         throw error;
     }
 };
+
+// 7. Thêm tệp từ link Google Docs / Sheets / Slides / Forms / Drive (Chỉ Admin)
+// Gửi { url, name?, folderId? } -> server trả về bản ghi file (isExternal: true, previewUrl, externalType...)
+export const createDriveLink = async (url, name = '', folderId = null) => {
+    try {
+        const res = await axios.post(`${API_URL}/api/drive/link`,
+            { url, name, folderId },
+            {
+                headers: {
+                    ...getAuthHeaders(),
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        return res.data;
+    } catch (error) {
+        console.error('Lỗi khi thêm tệp từ link Google:', error);
+        throw error;
+    }
+};
+// Tên khác để import cho tiện (cùng một hàm)
+export const createLinkFile = createDriveLink;

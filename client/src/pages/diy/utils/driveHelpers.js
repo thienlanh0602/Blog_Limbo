@@ -24,7 +24,15 @@ export const getTypeKey = (item, isFolder = false) => {
   if (isFolder) return 'folder';
   const mime = item?.fileType || '';
   const ext = getExt(item);
-  
+
+  // Tệp thêm từ link Google: nhận dạng theo loại tài liệu (Docs -> word, Sheets -> excel, Slides -> powerpoint)
+  if (item?.isExternal) {
+    const t = String(item.externalType || '').toLowerCase();
+    if (t.includes('sheet')) return 'excel';
+    if (t.includes('slide') || t.includes('present')) return 'powerpoint';
+    if (t.includes('doc')) return 'word';
+  }
+
   if (ext === 'psd' || mime.includes('photoshop')) return 'photoshop';
   if (ext === 'ai' || mime === 'application/illustrator') return 'illustrator';
   if (mime.includes('pdf') || ext === 'pdf') return 'pdf';
@@ -41,6 +49,10 @@ export const getTypeKey = (item, isFolder = false) => {
 
 // Cập nhật lại getFileLabel để bắt an toàn trường hợp fileType hoặc định dạng lạ
 export const getFileLabel = (file) => {
+  if (file?.isExternal) {
+    const labels = { word: 'Docs', excel: 'Sheets', powerpoint: 'Slides' };
+    return labels[getTypeKey(file, false)] || 'Link';
+  }
   const ext = getExt(file);
   if (ext) return ext.toUpperCase().slice(0, 4);
   const typeKey = getTypeKey(file, false);

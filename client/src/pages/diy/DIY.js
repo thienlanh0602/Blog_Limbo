@@ -8,7 +8,8 @@ import {
   deleteDriveFile,
   deleteDriveFolder,
   renameDriveFolder,
-  renameDriveFile
+  renameDriveFile,
+  createLinkFile
 } from '../../api/driveAPI';
 
 import { TopBlur } from './components/TopBlur';
@@ -362,11 +363,23 @@ const DrivePage = () => {
     }
   };
 
-  // Xử lý khi người dùng thêm Link Google Docs / Sheets
-  const handleUploadLink = (linkData) => {
-    console.log("Dữ liệu liên kết Google nhận được:", linkData);
-    // TODO: Gọi API lưu liên kết vào database tại đây (nếu có API hỗ trợ lưu link)
-    showToast(`Đã thêm liên kết: ${linkData.name}`);
+  // Thêm tệp từ link Google Docs / Sheets / Slides / Forms / Drive (gọi API createLinkFile)
+  // Trả về true khi thành công, false khi lỗi: modal nhập link dựa vào đó để đóng lại
+  // hoặc giữ nguyên nội dung cho người dùng sửa đường dẫn.
+  const handleUploadLink = async ({ url, name }) => {
+    try {
+      const file = await createLinkFile(url, name, currentFolderId);
+      loadData(currentFolderId);
+      const label = file?.name || name;
+      showToast(label ? `Đã thêm liên kết: ${label}` : 'Đã thêm liên kết');
+      return true;
+    } catch (err) {
+      showToast(
+        err.response?.data?.message || 'Không thể thêm liên kết, hãy kiểm tra lại đường dẫn!',
+        'error'
+      );
+      return false;
+    }
   };
 
   const handleAskDelete = (kind, item) => {

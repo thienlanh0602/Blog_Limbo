@@ -112,6 +112,7 @@ export const DriveModals = ({
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [linkName, setLinkName] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [isAddingLink, setIsAddingLink] = useState(false);
 
   // Xử lý khi chọn Tải lên từ máy tính
   const handleSelectBrowser = () => {
@@ -126,17 +127,24 @@ export const DriveModals = ({
   };
 
   // Xử lý Submit Link Google Docs / Sheets
-  const handleSubmitLink = (e) => {
+  const handleSubmitLink = async (e) => {
     e.preventDefault();
-    if (!linkUrl.trim()) return;
+    if (!linkUrl.trim() || isAddingLink) return;
 
+    let ok = true;
     if (onUploadLink) {
-      onUploadLink({
-        name: linkName.trim() || 'Google Document / Sheet',
+      setIsAddingLink(true);
+      // name để trống thì server tự đặt tên theo tài liệu
+      ok = await onUploadLink({
+        name: linkName.trim(),
         url: linkUrl.trim(),
         type: 'link'
       });
+      setIsAddingLink(false);
     }
+
+    // Lỗi thì giữ nguyên nội dung để người dùng sửa lại đường dẫn
+    if (ok === false) return;
 
     setLinkName('');
     setLinkUrl('');
@@ -278,9 +286,15 @@ export const DriveModals = ({
               <EditIcon /> Đổi tên
             </MenuItem>
           ),
-          <MenuItem key="download" sx={menuItemSx} component="a" href={getDownloadUrl(menu.target.url)} download target="_blank" rel="noreferrer" onClick={handleCloseMenu}>
-            <DownloadIcon /> Tải xuống
-          </MenuItem>,
+          menu.target.isExternal ? (
+            <MenuItem key="open-link" sx={menuItemSx} component="a" href={menu.target.url} target="_blank" rel="noreferrer" onClick={handleCloseMenu}>
+              <LinkIcon /> Mở liên kết
+            </MenuItem>
+          ) : (
+            <MenuItem key="download" sx={menuItemSx} component="a" href={getDownloadUrl(menu.target.url)} download target="_blank" rel="noreferrer" onClick={handleCloseMenu}>
+              <DownloadIcon /> Tải xuống
+            </MenuItem>
+          ),
           isAdmin && <Divider key="divider-file" sx={{ borderStyle: 'dashed', my: '2px !important' }} />,
           isAdmin && (
             <MenuItem key="delete-file" sx={menuItemDangerSx} onClick={() => handleAskDelete('FILE', menu.target)}>
@@ -316,27 +330,55 @@ export const DriveModals = ({
           </Box>
 
           <Box sx={{ textAlign: 'center' }}>
-            <Box sx={{ py: 4, px: 2 }}>
-              <Typography sx={{ fontSize: 14, color: C.textSub, mb: 1 }}>
-                Không hỗ trợ xem trực tiếp tất cả các tệp vì credit không cho phép, tải xuống mà xem.
-              </Typography>
-            </Box>
+            {selectedPreview?.isExternal && selectedPreview?.previewUrl ? (
+              <>
+                <Box
+                  component="iframe"
+                  src={selectedPreview.previewUrl}
+                  title={selectedPreview.name}
+                  sx={{ width: '100%', height: '60vh', border: `1px solid ${C.line}`, borderRadius: '12px', bgcolor: '#fff' }}
+                />
+                <Typography sx={{ fontSize: 13, color: C.textSub, mt: 1.5 }}>
+                  Nếu khung xem trống, tài liệu cần được chia sẻ "bất kỳ ai có liên kết", hoặc bấm Mở liên kết.
+                </Typography>
+              </>
+            ) : (
+              <Box sx={{ py: 4, px: 2 }}>
+                <Typography sx={{ fontSize: 14, color: C.textSub, mb: 1 }}>
+                  {selectedPreview?.isExternal
+                    ? 'Tài liệu này không xem trước được tại đây, hãy mở liên kết để xem.'
+                    : 'Không hỗ trợ xem trực tiếp tất cả các tệp vì credit không cho phép, tải xuống mà xem.'}
+                </Typography>
+              </Box>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3, pt: 2, borderTop: `1px dashed ${C.line}` }}>
             <Button onClick={() => setSelectedPreview(null)} sx={outlineBtnSx}>
               Đóng
             </Button>
-            <Button
-              component="a"
-              href={getDownloadUrl(selectedPreview?.url)}
-              download
-              target="_blank"
-              rel="noreferrer"
-              sx={darkBtnSx}
-            >
-              Tải xuống
-            </Button>
+            {selectedPreview?.isExternal ? (
+              <Button
+                component="a"
+                href={selectedPreview?.url}
+                target="_blank"
+                rel="noreferrer"
+                sx={darkBtnSx}
+              >
+                Mở liên kết
+              </Button>
+            ) : (
+              <Button
+                component="a"
+                href={getDownloadUrl(selectedPreview?.url)}
+                download
+                target="_blank"
+                rel="noreferrer"
+                sx={darkBtnSx}
+              >
+                Tải xuống
+              </Button>
+            )}
           </Box>
         </Box>
       </Modal>
@@ -442,7 +484,7 @@ export const DriveModals = ({
         disableScrollLock
         disableRestoreFocus
         open={linkModalOpen}
-        onClose={() => setLinkModalOpen(false)}
+        onClose={() => !isAddingLink && setLinkModalOpen(false)}
         BackdropProps={{ sx: modalBackdropSx }}
       >
         <Box sx={{ ...dialogBoxSx, width: 'min(460px, 92vw)' }}>
@@ -464,7 +506,7 @@ export const DriveModals = ({
                 <TextField
                   fullWidth
                   variant="standard"
-                  placeholder="Tên tài liệu (Ví dụ: Báo cáo Q1)..."
+                  placeholder="Tên tài liệu (không bắt buộc, bỏ trống sẽ tự lấy tên)..."
                   value={linkName}
                   onChange={(e) => setLinkName(e.target.value)}
                   InputProps={{ disableUnderline: true, sx: { fontSize: 14, fontWeight: 500 } }}
@@ -493,13 +535,13 @@ export const DriveModals = ({
             </Stack>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
-              <Button onClick={() => setLinkModalOpen(false)} sx={outlineBtnSx}>Hủy</Button>
+              <Button onClick={() => setLinkModalOpen(false)} disabled={isAddingLink} sx={outlineBtnSx}>Hủy</Button>
               <Button
                 type="submit"
-                disabled={!linkUrl.trim()}
+                disabled={!linkUrl.trim() || isAddingLink}
                 sx={{ ...darkBtnSx, '&.Mui-disabled': { bgcolor: C.fieldBg, color: C.textSub } }}
               >
-                Thêm liên kết
+                {isAddingLink ? 'Đang thêm...' : 'Thêm liên kết'}
               </Button>
             </Box>
           </form>

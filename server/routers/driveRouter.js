@@ -10,7 +10,8 @@ const {
     deleteFile,
     deleteFolder,
     renameFolder,
-    renameFile
+    renameFile,
+    createLinkFile
 } = require('../controllers/driveController');
 
 // 1. LẤY DANH SÁCH FOLDER & FILE
@@ -36,5 +37,8 @@ router.patch('/folder/:id', checkDriveAccess, requireAdmin, renameFolder);
 
 // 8. ĐỔI TÊN FILE (CHỈ ADMIN)
 router.patch('/file/:id', checkDriveAccess, requireAdmin, renameFile);
+
+// 9. THÊM FILE TỪ LINK GOOGLE DOCS / SHEETS (CHỈ ADMIN)
+router.post('/link', checkDriveAccess, requireAdmin, createLinkFile);
 
 module.exports = router;
