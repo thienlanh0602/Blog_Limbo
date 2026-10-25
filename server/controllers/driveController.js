@@ -44,7 +44,8 @@ const GOOGLE_KINDS = [
     { host: 'docs.google.com', re: /^\/spreadsheets\/(?:u\/\d+\/)?d\/(e\/)?([\w-]+)/, segment: 'spreadsheets', type: 'gsheet', mime: 'application/vnd.google-apps.spreadsheet', label: 'Google Sheets' },
     { host: 'docs.google.com', re: /^\/presentation\/(?:u\/\d+\/)?d\/(e\/)?([\w-]+)/, segment: 'presentation', type: 'gslide', mime: 'application/vnd.google-apps.presentation', label: 'Google Slides' },
     { host: 'docs.google.com', re: /^\/forms\/(?:u\/\d+\/)?d\/(e\/)?([\w-]+)/, segment: 'forms', type: 'gform', mime: 'application/vnd.google-apps.form', label: 'Google Forms' },
-    { host: 'drive.google.com', re: /^\/file\/(?:u\/\d+\/)?d\/()([\w-]+)/, segment: 'file', type: 'gdrive', mime: 'application/vnd.google-apps.file', label: 'Google Drive' }
+    { host: 'drive.google.com', re: /^\/file\/(?:u\/\d+\/)?d\/()([\w-]+)/, segment: 'file', type: 'gdrive', mime: 'application/vnd.google-apps.file', label: 'Google Drive' },
+    { host: 'drive.google.com', re: /^\/drive\/(?:u\/\d+\/)?folders\/()([\w-]+)/, segment: 'folders', type: 'gfolder', mime: 'application/vnd.google-apps.folder', label: 'Google Drive (thư mục)' }
 ];
 
 // Trả về { url, previewUrl, type, mime, label, id } hoặc null nếu không phải link Google hợp lệ.
@@ -71,6 +72,9 @@ const parseGoogleLink = (raw) => {
             previewUrl = `https://docs.google.com/${kind.segment}/d/${id}/preview`;
         } else if (!isPublished && kind.type === 'gdrive') {
             previewUrl = `https://drive.google.com/file/d/${id}/preview`;
+        } else if (kind.type === 'gfolder') {
+            // Thư mục Drive: dùng khung nhúng danh sách (thư mục phải chia sẻ "bất kỳ ai có liên kết")
+            previewUrl = `https://drive.google.com/embeddedfolderview?id=${id}#list`;
         }
         return { url: u.toString(), previewUrl, type: kind.type, mime: kind.mime, label: kind.label, id };
     }
