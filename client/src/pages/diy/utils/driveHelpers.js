@@ -48,7 +48,7 @@ export const getTypeKey = (item, isFolder = false) => {
   return 'other';
 };
 
-// Cập nhật lại getFileLabel để bắt an toàn trường hợp fileType hoặc định dạng lạ
+// Nhãn hiển thị định dạng (tệp lạ / không có đuôi thì hiện "FILE")
 export const getFileLabel = (file) => {
   if (file?.isExternal) {
     const labels = { word: 'Docs', excel: 'Sheets', powerpoint: 'Slides', drive: 'Drive' };
@@ -57,10 +57,80 @@ export const getFileLabel = (file) => {
   const ext = getExt(file);
   if (ext) return ext.toUpperCase().slice(0, 4);
   const typeKey = getTypeKey(file, false);
-  return typeKey ? typeKey.toUpperCase().slice(0, 4) : 'FILE';
+  return !typeKey || typeKey === 'other' ? 'FILE' : typeKey.toUpperCase().slice(0, 4);
 };
 
 export const getDownloadUrl = (url = '') => url.replace('/upload/', '/upload/fl_attachment/');
+
+/* ---------- Tải xuống: giữ đúng tên + đuôi tệp ---------- */
+
+// Đuôi file theo mime, dùng khi tên tệp trong DB bị mất đuôi
+const MIME_EXT = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/zip': 'zip',
+  'application/x-zip-compressed': 'zip',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'video/mp4': 'mp4',
+  'audio/mpeg': 'mp3'
+};
+
+// Tên file lúc tải về: luôn có đuôi (vd "bao-cao.docx", không phải "file")
+export const getDownloadName = (file) => {
+  const name = String(file?.name || '').trim() || 'file';
+  if (getExt({ name })) return name;
+
+  // Tên không có đuôi: thử lấy theo mime, rồi theo đuôi trong đường dẫn
+  let ext = MIME_EXT[file?.fileType] || '';
+  if (!ext && file?.url) {
+    const last = file.url.split('?')[0].split('/').pop() || '';
+    const urlExt = last.includes('.') ? last.split('.').pop().toLowerCase() : '';
+    if (/^[a-z0-9]{1,5}$/.test(urlExt)) ext = urlExt;
+  }
+  return ext ? `${name}.${ext}` : name;
+};
+
+// Tải về bằng fetch + blob để ép đúng tên tệp (thuộc tính `download` bị bỏ qua với link khác domain,
+// nên trước đây trình duyệt mở tab trống hoặc đặt tên "file")
+export const downloadFile = async (file) => {
+  if (!file?.url) return;
+
+  // Link Google: không có tệp để tải, mở thẳng liên kết
+  if (file.isExternal) {
+    window.open(file.url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  const filename = getDownloadName(file);
+  try {
+    const res = await fetch(file.url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  } catch (err) {
+    // Dự phòng (vd bị chặn CORS): mở link tải của Cloudinary
+    console.warn('Tải bằng blob thất bại, chuyển sang link trực tiếp:', err);
+    window.open(getDownloadUrl(file.url), '_blank', 'noopener,noreferrer');
+  }
+};
 
 export const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 export const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();

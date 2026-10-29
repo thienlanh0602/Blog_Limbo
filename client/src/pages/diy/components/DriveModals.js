@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -10,7 +10,8 @@ import {
   IconButton,
   Divider,
   Popover,
-  Stack
+  Stack,
+  useMediaQuery
 } from '@mui/material';
 import {
   FolderOpenIcon,
@@ -23,12 +24,208 @@ import {
   EditIcon
 } from '../icons/DriveIcons';
 import { CalendarMonth } from './CalendarMonth';
-import { addMonths, getDownloadUrl, getTypeKey } from '../utils/driveHelpers';
+import { addMonths, downloadFile, getTypeKey } from '../utils/driveHelpers';
 
 const modalBackdropSx = {
   backdropFilter: 'blur(2px) !important',
   WebkitBackdropFilter: 'blur(2px) !important',
   bgcolor: 'rgba(123, 136, 149, 0.3)'
+};
+
+/* ---------- Xem trước nội dung tệp ---------- */
+
+// Điện thoại: khung xem vừa khít hộp thoại (hộp thoại không phải cuộn, chỉ nội dung bên trong cuộn).
+// Máy tính: giữ 65vh như cũ.
+const PREVIEW_HEIGHT = { xs: 'calc(100dvh - 210px)', sm: '65vh' };
+const OFFICE_HEIGHT = { xs: 'calc(100dvh - 270px)', sm: '65vh' }; // trừ thêm dòng gợi ý + nút tải lại
+
+// iPhone/iPad: khung nhúng PDF chỉ hiện trang đầu và không cuộn được, nên dùng Google Viewer
+const isIOSDevice = () =>
+  typeof navigator !== 'undefined' &&
+  (/iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+// Tệp văn bản: đọc nội dung rồi hiện trực tiếp (giới hạn 200KB cho nhẹ)
+const TextPreview = ({ url, C }) => {
+  const [text, setText] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setText(null);
+    setFailed(false);
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error('fetch lỗi');
+        return res.text();
+      })
+      .then((t) => alive && setText(t.length > 200000 ? `${t.slice(0, 200000)}\n…` : t))
+      .catch(() => alive && setFailed(true));
+    return () => { alive = false; };
+  }, [url]);
+
+  if (failed) {
+    return <Typography sx={{ fontSize: 14, color: C.textSub, py: 3 }}>Không đọc được nội dung tệp, hãy tải xuống để xem.</Typography>;
+  }
+  if (text === null) {
+    return <Typography sx={{ fontSize: 14, color: C.textSub, py: 3 }}>Đang tải nội dung...</Typography>;
+  }
+  return (
+    <Box
+      component="pre"
+      sx={{
+        m: 0, p: 2, maxHeight: PREVIEW_HEIGHT, overflow: 'auto', overscrollBehavior: 'contain', textAlign: 'left',
+        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        fontSize: 13, lineHeight: 1.6, color: C.text,
+        border: `1px solid ${C.line}`, borderRadius: '12px', bgcolor: C.fieldBg,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
+      }}
+    >
+      {text}
+    </Box>
+  );
+};
+
+// Bật sandbox cho khung xem Google (chặn tự tải xuống, vì sandbox không có "allow-downloads").
+// Hiện TẮT vì sandbox có thể làm trình xem Google không cuộn được; muốn thử bật lại thì đổi thành true.
+const USE_FRAME_SANDBOX = false;
+const SAFE_FRAME_SANDBOX = USE_FRAME_SANDBOX
+  ? 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms'
+  : undefined;
+
+// Word / Excel / PowerPoint: chỉ xem bằng Google Viewer
+const OfficePreview = ({ file, C, frameSx }) => {
+  const [reloadKey, setReloadKey] = useState(0);
+  const src = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(file.url)}`;
+
+  // Đổi sang tệp khác thì tải lại khung từ đầu
+  useEffect(() => {
+    setReloadKey(0);
+  }, [file.url]);
+
+  return (
+    <>
+      <Box
+        component="iframe"
+        key={`${src}-${reloadKey}`}
+        src={src}
+        title={file.name}
+        sandbox={SAFE_FRAME_SANDBOX}
+        sx={{ ...frameSx, height: OFFICE_HEIGHT }}
+      />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mt: 1.5 }}>
+        <Typography sx={{ fontSize: 13, color: C.textSub, textAlign: 'left', flex: 1, minWidth: 200 }}>
+          Nếu khung xem trống, bấm Tải lại khung xem (Google đôi khi cần tải lần thứ hai).
+        </Typography>
+        <Button
+          onClick={() => setReloadKey((k) => k + 1)}
+          sx={{ textTransform: 'none', fontSize: 13, fontWeight: 600, color: C.text }}
+        >
+          Tải lại khung xem
+        </Button>
+      </Box>
+    </>
+  );
+};
+
+// PDF: đọc tệp về dạng blob rồi hiện bằng blob URL, trình duyệt luôn mở xem tại chỗ
+// (nếu nhúng thẳng link Cloudinary mà server trả header "attachment" thì trình duyệt sẽ tự tải về)
+const PdfPreview = ({ file, C, frameSx }) => {
+  const [src, setSrc] = useState(null);
+  const [fallback, setFallback] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    let objectUrl = null;
+    setSrc(null);
+    setFallback(false);
+
+    if (isIOSDevice()) {
+      setFallback(true);
+      return undefined;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch(file.url);
+        if (!res.ok) throw new Error('fetch lỗi');
+        const blob = await res.blob();
+        if (!alive) return;
+        // Ép đúng loại PDF để trình duyệt hiển thị thay vì tải xuống
+        objectUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+        setSrc(objectUrl);
+      } catch (err) {
+        console.warn('Không đọc được PDF bằng blob, chuyển sang trình xem Google:', err);
+        if (alive) setFallback(true);
+      }
+    })();
+
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [file.url]);
+
+  if (fallback) {
+    const gview = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(file.url)}`;
+    return <Box component="iframe" src={gview} title={file.name} sandbox={SAFE_FRAME_SANDBOX} sx={frameSx} />;
+  }
+  if (!src) {
+    return <Typography sx={{ fontSize: 14, color: C.textSub, py: 3 }}>Đang tải tài liệu...</Typography>;
+  }
+  return <Box component="iframe" src={src} title={file.name} sx={frameSx} />;
+};
+
+// Chọn cách hiển thị theo loại tệp
+const FilePreview = ({ file, C }) => {
+  if (!file) return null;
+
+  const type = getTypeKey(file, false);
+  const frameSx = {
+    width: '100%', height: PREVIEW_HEIGHT, minHeight: 240,
+    border: `1px solid ${C.line}`, borderRadius: '12px', bgcolor: '#fff'
+  };
+
+  if (type === 'image') {
+    return (
+      <Box
+        component="img"
+        src={file.url}
+        alt={file.name}
+        sx={{ maxWidth: '100%', maxHeight: PREVIEW_HEIGHT, borderRadius: '12px', objectFit: 'contain' }}
+      />
+    );
+  }
+
+  if (type === 'pdf') {
+    return <PdfPreview file={file} C={C} frameSx={frameSx} />;
+  }
+
+  if (type === 'video') {
+    return <Box component="video" controls src={file.url} sx={{ width: '100%', maxHeight: PREVIEW_HEIGHT, borderRadius: '12px', bgcolor: '#000' }} />;
+  }
+
+  if (type === 'audio') {
+    return <Box component="audio" controls src={file.url} sx={{ width: '100%', mt: 2 }} />;
+  }
+
+  // Word / Excel / PowerPoint: chỉ xem bằng Google Viewer
+  if (type === 'word' || type === 'excel' || type === 'powerpoint') {
+    return <OfficePreview file={file} C={C} frameSx={frameSx} />;
+  }
+
+  if (type === 'txt') {
+    return <TextPreview url={file.url} C={C} />;
+  }
+
+  // Các định dạng còn lại (zip, psd, ai...): không xem trực tiếp được
+  return (
+    <Box sx={{ py: 4, px: 2 }}>
+      <Typography sx={{ fontSize: 14, color: C.textSub }}>
+        Định dạng này chưa xem trực tiếp được, hãy bấm Tải xuống để mở bằng ứng dụng trên máy.
+      </Typography>
+    </Box>
+  );
 };
 
 export const DriveModals = ({
@@ -108,6 +305,10 @@ export const DriveModals = ({
 
   C
 }) => {
+  // Điện thoại / màn hình cảm ứng: khóa cuộn trang nền khi đang xem trước, để vuốt là cuộn nội dung xem trước.
+  // Máy tính giữ disableScrollLock để header không bị dịch khi thanh cuộn biến mất.
+  const lockScroll = useMediaQuery('(pointer: coarse), (max-width: 600px)');
+
   // State phụ quản lý riêng Modal nhập link Google Docs/Sheets
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [linkName, setLinkName] = useState('');
@@ -160,7 +361,7 @@ export const DriveModals = ({
         open={isDateOpen}
         onClose={() => setIsDateOpen(false)}
       >
-        <Box sx={{ ...modalBoxSx, width: 'min(860px, 94vw)', maxHeight: '92vh', overflowY: 'auto', p: 3 }}>
+        <Box sx={{ ...modalBoxSx, width: 'min(860px, 94vw)', maxHeight: '92vh', overflowY: 'auto', p: { xs: 2, sm: 3 } }}>
           <Typography sx={{ fontSize: 20, fontWeight: 500, mb: 3 }}>
             Chọn khoảng ngày
           </Typography>
@@ -291,7 +492,7 @@ export const DriveModals = ({
               <LinkIcon /> Mở liên kết
             </MenuItem>
           ) : (
-            <MenuItem key="download" sx={menuItemSx} component="a" href={getDownloadUrl(menu.target.url)} download target="_blank" rel="noreferrer" onClick={handleCloseMenu}>
+            <MenuItem key="download" sx={menuItemSx} onClick={() => { downloadFile(menu.target); handleCloseMenu(); }}>
               <DownloadIcon /> Tải xuống
             </MenuItem>
           ),
@@ -306,12 +507,22 @@ export const DriveModals = ({
 
       {/* MODAL XEM THỬ FILE */}
       <Modal
-        disableScrollLock
+        disableScrollLock={!lockScroll}
         open={Boolean(selectedPreview)}
         onClose={() => setSelectedPreview(null)}
         BackdropProps={{ sx: modalBackdropSx }}
       >
-        <Box sx={{ ...dialogBoxSx, maxWidth: '800px', width: '92vw', maxHeight: '90vh', overflowY: 'auto' }}>
+        <Box
+          sx={{
+            ...dialogBoxSx,
+            maxWidth: '1000px', width: '94vw',
+            maxHeight: { xs: 'calc(100dvh - 24px)', sm: '90vh' },
+            p: { xs: 2, sm: 3, md: 4 },
+            overflowY: 'auto',
+            overscrollBehavior: 'contain', // cuộn tới cuối thì không đẩy sang trang nền
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2.5 }}>
             <Typography
               title={selectedPreview?.name}
@@ -330,26 +541,29 @@ export const DriveModals = ({
           </Box>
 
           <Box sx={{ textAlign: 'center' }}>
-            {selectedPreview?.isExternal && selectedPreview?.previewUrl ? (
-              <>
-                <Box
-                  component="iframe"
-                  src={selectedPreview.previewUrl}
-                  title={selectedPreview.name}
-                  sx={{ width: '100%', height: '60vh', border: `1px solid ${C.line}`, borderRadius: '12px', bgcolor: '#fff' }}
-                />
-                <Typography sx={{ fontSize: 13, color: C.textSub, mt: 1.5 }}>
-                  Nếu khung xem trống, tài liệu cần được chia sẻ "bất kỳ ai có liên kết", hoặc bấm Mở liên kết.
-                </Typography>
-              </>
+            {selectedPreview?.isExternal ? (
+              selectedPreview?.previewUrl ? (
+                <>
+                  <Box
+                    component="iframe"
+                    src={selectedPreview.previewUrl}
+                    title={selectedPreview.name}
+                    sandbox={SAFE_FRAME_SANDBOX}
+                    sx={{ width: '100%', height: OFFICE_HEIGHT, minHeight: 240, border: `1px solid ${C.line}`, borderRadius: '12px', bgcolor: '#fff' }}
+                  />
+                  <Typography sx={{ fontSize: 13, color: C.textSub, mt: 1.5 }}>
+                    Nếu khung xem trống, tài liệu cần được chia sẻ "bất kỳ ai có liên kết", hoặc bấm Mở liên kết.
+                  </Typography>
+                </>
+              ) : (
+                <Box sx={{ py: 4, px: 2 }}>
+                  <Typography sx={{ fontSize: 14, color: C.textSub }}>
+                    Tài liệu này không xem trước được tại đây, hãy mở liên kết để xem.
+                  </Typography>
+                </Box>
+              )
             ) : (
-              <Box sx={{ py: 4, px: 2 }}>
-                <Typography sx={{ fontSize: 14, color: C.textSub, mb: 1 }}>
-                  {selectedPreview?.isExternal
-                    ? 'Tài liệu này không xem trước được tại đây, hãy mở liên kết để xem.'
-                    : 'Không hỗ trợ xem trực tiếp tất cả các tệp vì credit không cho phép, tải xuống mà xem.'}
-                </Typography>
-              </Box>
+              <FilePreview file={selectedPreview} C={C} />
             )}
           </Box>
 
@@ -368,14 +582,7 @@ export const DriveModals = ({
                 Mở liên kết
               </Button>
             ) : (
-              <Button
-                component="a"
-                href={getDownloadUrl(selectedPreview?.url)}
-                download
-                target="_blank"
-                rel="noreferrer"
-                sx={darkBtnSx}
-              >
+              <Button onClick={() => downloadFile(selectedPreview)} sx={darkBtnSx}>
                 Tải xuống
               </Button>
             )}

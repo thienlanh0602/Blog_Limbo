@@ -64,7 +64,12 @@ const menuItemDangerSx = {
 
 const modalBoxSx = {
   position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-  bgcolor: 'background.paper', boxShadow: 0, p: 4, borderRadius: 2
+  bgcolor: 'background.paper', boxShadow: 0, borderRadius: { xs: 1.5, sm: 2 },
+  p: { xs: 2, sm: 3, md: 4 },          // lề trong: 16px (điện thoại) → 24px → 32px
+  boxSizing: 'border-box',
+  maxWidth: 'calc(100vw - 24px)',      // luôn chừa 12px hai bên màn hình
+  maxHeight: 'calc(100dvh - 24px)',    // không tràn chiều cao, nội dung dài thì cuộn
+  overflowY: 'auto'
 };
 
 const dialogBoxSx = {
