@@ -10,8 +10,8 @@ export const StyleAppBar = ({ children, position = 'fixed', showHeader = true, s
                 transform: showHeader
                     ? "translateX(-50%) translateY(0)"
                     : "translateX(-50%) translateY(-200%)",
-                width: { xs: "92%", sm: "85%", md: "80%" },
-                maxWidth: scrolled ? { xs: 94, sm: 110, md: 142 } : 1000,
+                width: { xs: "80%", sm: "85%", md: "80%" },
+                maxWidth: scrolled ? { xs: 98, sm: 110, md: 142 } : 1000,
                 borderRadius: { xs: "30px", md: "50px" },
                 border: "1px solid black",
                 boxShadow: "none",
@@ -20,6 +20,9 @@ export const StyleAppBar = ({ children, position = 'fixed', showHeader = true, s
                 transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
                 zIndex: 1200,
                 py: 0,
+                WebkitTapHighlightColor: 'transparent',
+                WebkitTouchCallout: 'none',
+                userSelect: 'none',
                 ...sx,
             }} {...props}>
             {children}
@@ -33,6 +36,7 @@ export const StyleToolbar = ({ children, sx = {}, ...props }) => {
             disableGutters
             sx={{
                 minHeight: { xs: 42, sm: 48 },
+                px: { xs: 4, sm: 2, md: 1 },
                 ...sx
             }}
             {...props}>
@@ -108,7 +112,9 @@ export const ButtonNav = ({ children, color = 'inherit', sx = {}, ...props }) =>
             color={color}
             sx={{
                 display: 'flex',
-                fontSize: { xs: 14, sm: 16 },
+                fontSize: { xs: 12, sm: 15 },
+                fontWeight: 600,
+
                 flexDirection: 'column',
                 textTransform: 'none',
                 px: 0,
@@ -177,7 +183,7 @@ export const TypographyLogo = ({ fontStyle = 'bold', sx = {}, ...props }) => {
         <Typography
             fontStyle={fontStyle}
             fontWeight={600}
-            sx={{ fontSize: { xs: 14, sm: 16 }, ...sx }}
+            sx={{ fontSize: { xs: 13, sm: 14 }, ...sx }}
             {...props} />
     )
 }

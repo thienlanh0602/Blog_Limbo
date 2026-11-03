@@ -24,7 +24,8 @@ export default function Nav1({ item }) {
         px: { xs: 2, md: 0 },
         width: '100%',
         pt: { xs: 34, sm: 14, md: 18 },
-        pb: { xs: 16},
+        pb: { xs: 16, md: 36},
+        
       }}
     >
       <Box

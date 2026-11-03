@@ -34,9 +34,9 @@ const Nav3 = ({ item }) => {
       sx={{
         ...commonSxDisplay,
         flexDirection: "column",
-        gap: { xs: 3, md: 4 },
         width: '100%',
         px: { xs: 2, sm: 3, md: 0 },
+        py: { xs: 4, md: 10 },
         boxSizing: 'border-box',
       }}
     >
@@ -44,10 +44,10 @@ const Nav3 = ({ item }) => {
         ...commonSxDisplay,
         flexDirection: 'column',
       }} >
-        <StyleTypography_Title>
+        {/* <StyleTypography_Title>
           {item.title}
         </StyleTypography_Title>
-        <StyleTypography_Text>{item.title_2}</StyleTypography_Text>
+        <StyleTypography_Text>{item.title_2}</StyleTypography_Text> */}
       </Box>
 
       {Array.isArray(item.image) && item.image.length > 0 && (

@@ -1,4 +1,4 @@
-import { Box, useMediaQuery, useTheme } from '@mui/material'
+import { Box, IconButton, useMediaQuery, useTheme } from '@mui/material'
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { STATIC_IMAGES } from '../utils/Staticimages';
 import { optimizeCloudinaryUrl } from '../utils/Cloudinaryhelper';
@@ -7,10 +7,10 @@ import { useState, useEffect } from 'react';
 import { BoxImage, BoxLogo, BoxNav, ButtonImage, ButtonNav, EditDrawer, StyleAppBar, StyleContainer, StyleToolbar, TypographyLogo } from "../components/header/header";
 
 const navBar = [
-    { label: 'Resume', path: '/resume' },
-    { label: 'Music', path: '/music' },
-    { label: 'Color', path: '/color' },
-    { label: 'Image', path: '/image' },
+    { label: 'RESUME', path: '/resume' },
+    { label: 'MUSIC', path: '/music' },
+    { label: 'KABAN', path: '/color' },
+    { label: 'IMAGE', path: '/image' },
     { label: 'FM', path: '/fm' },
 ]
 
@@ -21,6 +21,66 @@ const COMPACT_HEADER_BG = {
     '/music': '#4EFCD3',
     '/fm': '#FFD100',
 };
+
+// Giờ hiện tại dạng "03:45 PM /26" (26 là 2 số cuối của năm), cập nhật mỗi phút
+const HeaderClock = () => {
+    const [now, setNow] = useState(() => new Date());
+
+    useEffect(() => {
+        let timer;
+        // Hẹn đúng đầu mỗi phút để đồng hồ luôn chạy khớp, không phải cập nhật mỗi giây
+        const scheduleNext = () => {
+            timer = setTimeout(() => {
+                setNow(new Date());
+                scheduleNext();
+            }, 60000 - (Date.now() % 60000) + 50);
+        };
+        scheduleNext();
+        return () => clearTimeout(timer);
+    }, []);
+
+    const time = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    }); // vd: "03:45 PM"
+    const year = String(now.getFullYear()).slice(-2); // 2026 -> "26"
+
+    return (
+        <Box
+            component="span"
+            aria-label={`${time}, năm ${now.getFullYear()}`}
+            sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                whiteSpace: 'nowrap',
+                fontSize: { xs: '0.8rem', md: '0.9rem' },
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                fontVariantNumeric: 'tabular-nums', // chữ số cùng độ rộng, đồng hồ không bị nhảy
+                color: 'inherit'
+            }}
+        >
+            {time} /{year}
+        </Box>
+    );
+};
+
+// Icon 3 gạch (menu) vẽ bằng SVG, lấy màu theo chữ của nút
+const MenuLinesIcon = () => (
+    <svg
+        width="26"
+        height="26"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        style={{ display: 'block' }}
+    >
+        <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+);
 
 function Header() {
     const theme = useTheme();
@@ -101,8 +161,16 @@ function Header() {
             <StyleToolbar sx={{
                 transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                 minHeight: compact ? { xs: 44, md: 52 } : undefined,
+                // Thu nhỏ: bỏ lề ngang để logo không bị tràn ra ngoài hộp hẹp
+                ...(compact && { px: 0 }),
             }}>
-                <StyleContainer>
+                <StyleContainer
+                    sx={{
+                        transition: 'padding 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                        // Thu nhỏ: bỏ lề ngang và căn logo vào giữa hộp
+                        ...(compact && { px: 0, justifyContent: 'center' }),
+                    }}
+                >
 
                     <BoxLogo
                         onClick={handleLogoClick}
@@ -113,14 +181,14 @@ function Header() {
                             alt="Logo"
                             sx={{
                                 height: compact
-                                    ? { xs: 22, sm: 24, md: 26 }
-                                    : { xs: 30, sm: 32, md: 36 },
+                                    ? { xs: 22, sm: 24, md: 24 }
+                                    : { xs: 26, sm: 28, md: 30 },
                                 transform: 'scaleX(-1)',
                                 transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                             }}
                         />
                         <TypographyLogo sx={{
-                            fontSize: compact ? { xs: '0.8rem', md: '0.9rem' } : undefined,
+                            // fontSize: compact ? { xs: '0.8rem', md: '0.9rem' } : undefined,
                             transition: 'font-size 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}>
                             Limbo
@@ -130,12 +198,26 @@ function Header() {
                     {!compact && (
                         isMobile ? (
                             <>
-                                <ButtonImage onClick={(e) => {
-                                    e.currentTarget.blur();
-                                    setOpen(true);
-                                }}>
-                                    <BoxImage component='img' src={optimizeCloudinaryUrl(STATIC_IMAGES.menu, 20)} />
-                                </ButtonImage>
+                                {/* Điện thoại: chỉ icon 3 gạch, không nền, không viền, không bóng */}
+                                <IconButton
+                                    aria-label="Mở menu"
+                                    disableRipple
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={(e) => {
+                                        e.currentTarget.blur();
+                                        setOpen(true);
+                                    }}
+                                    sx={{
+                                        p: 0.5,
+                                        color: 'black',
+                                        backgroundColor: 'transparent',
+                                        WebkitTapHighlightColor: 'transparent',
+                                        '&:hover': { backgroundColor: 'transparent' },
+                                        '&:active': { backgroundColor: 'transparent', opacity: 0.6 }
+                                    }}
+                                >
+                                    <MenuLinesIcon />
+                                </IconButton>
 
                                 <EditDrawer open={open} onClose={() => setOpen(false)}>
                                     {navBar.map((item) => (
@@ -167,9 +249,7 @@ function Header() {
                                     ))}
                                 </BoxNav>
                                 <Box>
-                                    <ButtonImage>
-                                        <BoxImage component='img' src={optimizeCloudinaryUrl(STATIC_IMAGES.arrow, 30)} />
-                                    </ButtonImage>
+                                    <HeaderClock />
                                 </Box>
                             </>
                         )

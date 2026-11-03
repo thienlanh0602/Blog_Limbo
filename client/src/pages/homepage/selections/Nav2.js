@@ -58,7 +58,7 @@ const Nav2 = ({ item }) => {
         background: "linear-gradient(270deg, #E2FDE9, #29f0c4, #E2FDE9)",
         backgroundSize: "400% 400%",
         animation: "gradientShift 6s ease infinite",
-        minHeight: { xs: 420, sm: 500, md: 800 },
+        minHeight: { xs: 420, sm: 500, md: 1200 },
         height: { xs: "auto", md: 600 },
         py: { xs: 4, md: 0 },
         width: "100%",

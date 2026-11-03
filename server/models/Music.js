@@ -5,6 +5,10 @@ const MusicSchema = new mongoose.Schema({
         type: String, 
         required: true 
     },
+    artist: {
+        type: String,
+        default: 'Không rõ nghệ sĩ'
+    },
     youtubeUrl: { 
         type: String, 
         required: true 
