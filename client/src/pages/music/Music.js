@@ -3,6 +3,7 @@ import { Box, useTheme, useMediaQuery, GlobalStyles } from '@mui/material';
 import PageContainer from "../../components/layout/PageContainer";
 import { getPlaylists, getPlaylistDetail } from '../../api/playlistAPI';
 import { getSafeThumbnail, FALLBACK_COVER_SVG } from '../music/utils/thumbnail';
+import { useAudioEQ } from '../../pages/homepage/selections/useAudioEq';
 
 import { PlaylistCards } from './components/PlaylistCards';
 import { MusicPlayerBar } from './components/MusicPlayerBar';
@@ -60,6 +61,7 @@ function Music() {
     const audioRef = useRef(null);
     const pageWrapperRef = useRef(null);
     const shuffleHistoryRef = useRef([]);
+    const { resume, setPreset } = useAudioEQ(audioRef);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -177,6 +179,8 @@ function Music() {
     }, [currentTrack]);
 
     const handlePlayPause = useCallback(() => {
+        resume();
+        setPreset("spotifyBass");
         const trackToPlay = currentTrack || activeTrack;
         if (!currentTrack && trackToPlay) {
             setCurrentTrack(trackToPlay);
@@ -200,6 +204,12 @@ function Music() {
             setIsPlaying(false);
         }
     }, [currentTrack, activeTrack]);
+
+    const handleSelectTrack = useCallback((track) => {
+    resume();
+    setPreset("spotifyBass");
+    setCurrentTrack(track);
+}, [resume, setPreset]);
 
     useEffect(() => {
         const handleKeyDown = (event) => {
@@ -398,6 +408,7 @@ function Music() {
                 <audio
                     ref={audioRef}
                     src={activeTrack.cloudinaryUrl}
+                     crossOrigin="anonymous"
                     playsInline
                     preload="auto"
                     loop={repeatMode === 'one'}
@@ -483,7 +494,7 @@ function Music() {
                         loading={loading}
                         currentTrack={currentTrack}
                         isPlaying={isPlaying}
-                        setCurrentTrack={setCurrentTrack}
+                        setCurrentTrack={handleSelectTrack}
                         loadedCovers={loadedCovers}
                         handleCoverLoad={handleCoverLoad}
                         loadedTrackThumbs={loadedTrackThumbs}

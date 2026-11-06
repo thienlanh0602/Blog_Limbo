@@ -42,23 +42,23 @@ function Home() {
 
   return (
     <>
-      <Box sx={{
-        display: 'grid',
-        // rowGap: { xs: 20, sm: 24, md: 30 },
-        width: '100%',
-        // maxWidth: '100vw',
-        overflowX: 'hidden',
-        "&::before": {
-          content: '""',
-          position: "absolute",
-          inset: 0,
-          pointerEvents: "none",
-          opacity: 0.08,
-          height: 1000,
-          backgroundImage: `radial-gradient(circle, rgba(0,0,0,.35) 1.6px, transparent 1px)`,
-          backgroundSize: "10px 10px",
-        },
-      }}>
+      <Box
+        sx={{
+          display: 'grid',
+          width: '100%',
+          overflowX: 'hidden',
+          "&::before": {
+            content: '""',
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            opacity: 0.08,
+            height: {xs: 900, md: 1000},
+            backgroundImage: `radial-gradient(circle, rgba(0,0,0,.35) 1.6px, transparent 1px)`,
+            backgroundSize: "10px 10px",
+          },
+        }}
+      >
         {data.map((item) => {
           switch (item.type) {
             case 'nav_1':

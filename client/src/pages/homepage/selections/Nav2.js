@@ -5,39 +5,58 @@ import { breakpoints } from "../../../theme/breakpoints";
 import { commonSxDisplay } from "../../../components/homepage/home";
 import TypingDots from "../../../components/homepage/selections/component_2/TypingDot";
 
-// Hook detect scroll vào viewport
-const useInView = (threshold = 0.2) => {
+// Nội dung title 3 viết tay (không lấy từ database)
+const TITLE_3 = "Mày không có bạn bè à?";
+
+// Hook tính tiến độ hiện (0 -> 1) theo vị trí scroll
+const useScrollReveal = (startRatio = 0.95, endRatio = 0.65) => {
   const ref = useRef(null);
-  const [inView, setInView] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) setInView(true);
-      },
-      { threshold }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
+    let ticking = false;
 
-  return { ref, inView };
+    const update = () => {
+      ticking = false;
+      if (!ref.current) return;
+      const top = ref.current.getBoundingClientRect().top;
+      const vh = window.innerHeight;
+      const start = vh * startRatio;
+      const end = vh * endRatio;
+      const p = (start - top) / (start - end);
+      setProgress(Math.min(Math.max(p, 0), 1));
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [startRatio, endRatio]);
+
+  return { ref, progress };
 };
 
-const AnimatedBubble = ({ children, delay = 0, align = "right" }) => {
-  const { ref, inView } = useInView(0.1);
+const AnimatedBubble = ({ children, align = "right" }) => {
+  const { ref, progress } = useScrollReveal();
+  const offset = (1 - progress) * 40;
 
   return (
     <Box
       ref={ref}
       sx={{
-        opacity: inView ? 1 : 0,
-        transform: inView
-          ? "translateY(0)"
-          : align === "right"
-            ? "translateX(40px)"   // slide từ phải vào
-            : "translateX(-40px)", // slide từ trái vào
-        transition: `opacity 0.5s ease ${delay}ms, transform 0.5s ease ${delay}ms`,
+        opacity: progress,
+        transform: `translateX(${align === "right" ? offset : -offset}px)`,
+        willChange: "opacity, transform",
       }}
     >
       {children}
@@ -55,49 +74,14 @@ const Nav2 = ({ item }) => {
       sx={{
         ...commonSxDisplay,
         position: "relative",
-        background: "linear-gradient(270deg, #E2FDE9, #29f0c4, #E2FDE9)",
-        backgroundSize: "400% 400%",
-        animation: "gradientShift 6s ease infinite",
-        minHeight: { xs: 420, sm: 500, md: 1200 },
+        // backgroundColor: "#4EFCD3", // màu nền cố định
+        minHeight: { xs: 320, sm: 500, md: 1200 },
         height: { xs: "auto", md: 600 },
-        py: { xs: 4, md: 0 },
+        pt: { xs: 26, },
         width: "100%",
         overflow: "hidden",
-        "@keyframes gradientShift": {
-          "0%": { backgroundPosition: "0% 50%" },
-          "50%": { backgroundPosition: "100% 50%" },
-          "100%": { backgroundPosition: "0% 50%" },
-        },
       }}
     >
-      <Box sx={{
-        position: "absolute",
-        width: { xs: 200, md: 400 },
-        height: { xs: 200, md: 400 },
-        borderRadius: "50%",
-        background: "radial-gradient(circle, #29f0c4aa, transparent)",
-        top: "-10%",
-        left: "-5%",
-        filter: "blur(40px)",
-        animation: "blobFloat 8s ease-in-out infinite",
-        "@keyframes blobFloat": {
-          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
-          "33%": { transform: "translate(30px, -20px) scale(1.1)" },
-          "66%": { transform: "translate(-20px, 15px) scale(0.95)" },
-        },
-      }} />
-
-      <Box sx={{
-        position: "absolute",
-        width: { xs: 150, md: 300 },
-        height: { xs: 150, md: 300 },
-        borderRadius: "50%",
-        background: "radial-gradient(circle, #E2FDE9cc, transparent)",
-        bottom: "5%",
-        right: "5%",
-        filter: "blur(50px)",
-        animation: "blobFloat 10s ease-in-out infinite reverse",
-      }} />
       <Container
         sx={{
           position: "relative",
@@ -108,21 +92,26 @@ const Nav2 = ({ item }) => {
           py: { xs: 4, md: 40 },
         }}
       >
-        <Box sx={{ position: "relative", height: 600 }}>
+        <Box sx={{ position: "relative", height: { xs: 780, md: 860 } }}>
 
-          <Box sx={{ position: "absolute", top: { xs: '16%', sm: '12%', md: "15%" }, right: { xs: '6%', sm: '12%', md: "18%" } }}>
-            <AnimatedBubble delay={800} align="right">
+          {/* Tin 1: title (phải) */}
+          <Box sx={{ position: "absolute", top: "4%", right: { xs: "6%", sm: "12%", md: "18%" } }}>
+            <AnimatedBubble align="right">
               <ChatBubble
                 text={item.title}
                 img={item.image}
                 align="right"
+                bgColor="#4EFCD3"
+                seen
+                seenImg={item.image?.[1]}
                 time="00:00"
               />
             </AnimatedBubble>
           </Box>
 
-          <Box sx={{ position: "absolute", top: { xs: '48%', sm: '48%', md: "45%" }, left: { xs: '8%', sm: '12%', md: "18%" } }}>
-            <AnimatedBubble delay={2800} align="left">
+          {/* Tin 2: title_2 (trái) */}
+          <Box sx={{ position: "absolute", top: "26%", left: { xs: "8%", sm: "12%", md: "18%" } }}>
+            <AnimatedBubble align="left">
               <ChatBubble
                 text={item.title_2}
                 img={item.image}
@@ -132,25 +121,35 @@ const Nav2 = ({ item }) => {
             </AnimatedBubble>
           </Box>
 
-          <Box sx={{ position: "absolute", top: { xs: '74%', sm: '75%', md: "70%" }, right: { xs: '6%', sm: '12%', md: "18%" } }}>
-            <AnimatedBubble delay={4000} align="right">
+          {/* Tin 3: title 3 viết tay (trái) */}
+          <Box sx={{ position: "absolute", top: "48%", left: { xs: "8%", sm: "12%", md: "18%" } }}>
+            <AnimatedBubble align="left">
+              <ChatBubble
+                text={TITLE_3}
+                img={item.image}
+                align="left"
+                time="00:02"
+              />
+            </AnimatedBubble>
+          </Box>
+
+          {/* Tin 4: đang gõ (phải) */}
+          <Box sx={{ position: "absolute", top: "70%", right: { xs: "6%", sm: "12%", md: "18%" } }}>
+            <AnimatedBubble align="right">
               <ChatBubble
                 img={item.image}
                 align="right"
-                time="00:02"
+                time="00:03"
+                bgColor="#4EFCD3"
               >
-                <TypingDots color="black" size={{ xs: 4, sm: 6, md: 8 }} speed={1} />
+                <TypingDots color="black" size={{ xs: 4, sm: 6, md: 7 }} speed={1} />
               </ChatBubble>
             </AnimatedBubble>
           </Box>
 
         </Box>
       </Container>
-
-    </Box >
-
-
-
+    </Box>
   );
 };
 

@@ -47,7 +47,7 @@ const CardItem = ({ card }) => (
         }}
       />
       <Typography
-        sx={{ fontSize: { xs: 14, md: 18 }, fontWeight: 300, textAlign: "left" }}
+        sx={{ fontSize: { xs: 16, md: 18 }, fontWeight: 300, textAlign: "left" }}
       >
         <HighlightText text={card.title} />
       </Typography>
@@ -56,9 +56,9 @@ const CardItem = ({ card }) => (
     <Box sx={{ display: "flex", flexDirection: "column", alignSelf: "flex-start" }}>
       <Typography
         sx={{
-          fontWeight: 300,
+          fontWeight: 500,
           textAlign: "left",
-          fontSize: { xs: 15, md: 24 },
+          fontSize: 24,
         }}
       >
         <HighlightText text={card.title_2} />

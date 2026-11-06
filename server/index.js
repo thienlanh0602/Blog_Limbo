@@ -36,8 +36,8 @@ dns.setServers([
 
 // Kết nối MongoDB
 mongoose.connect(MONGO_URL)
-  .then(() => console.log("Success connect MongoDB ✅"))
-  .catch(err => console.log('Error Connect ❌', err));
+  .then(() => console.log("Success connect MongoDB"))
+  .catch(err => console.log('Error Connect', err));
 
 // Route cơ bản để kiểm tra trạng thái và phục vụ Self-ping
 app.get('/ping', (req, res) => {
@@ -58,7 +58,7 @@ function startKeepAlive() {
   const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL;
 
   if (!RENDER_EXTERNAL_URL) {
-    console.log("Đang chạy ở Localhost - Không kích hoạt Self-Ping. 💻");
+    console.log("Đang chạy ở Localhost - Không kích hoạt Self-Ping.");
     return;
   }
 
@@ -80,7 +80,7 @@ function startKeepAlive() {
 }
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port} 🚀`);
+  console.log(`Server is running on port ${port}`);
   
   // Khởi động trình tự ping ngay khi server chạy thành công
   startKeepAlive();

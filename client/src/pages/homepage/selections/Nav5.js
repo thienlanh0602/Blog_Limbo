@@ -37,7 +37,7 @@ const StepItem = ({ item, active }) => {
         <Typography
           sx={{
             textAlign: "right",
-            fontSize: { xs: 14, md: 18 },
+            fontSize: { xs: 16, md: 18 },
             fontWeight: 300,
             lineHeight: "28px",
             pt: 0.25,
@@ -84,8 +84,8 @@ const StepItem = ({ item, active }) => {
       <Box>
         <Typography
           sx={{
-            fontSize: { xs: 20, md: 24 },
-            fontWeight: 300,
+            fontSize: { xs: 24, md: 24 },
+            fontWeight: 500,
             lineHeight: 1.2,
             textAlign: "left",
           }}
@@ -249,6 +249,7 @@ const Nav5 = ({ header, items }) => {
             flexDirection: "column",
             position: { md: "sticky" },
             top: { md: 100 },
+            pb: { xs: 6 },
           }}
         >
           <Typography

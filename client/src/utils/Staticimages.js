@@ -19,6 +19,8 @@ export const STATIC_IMAGES = {
     color: 'https://res.cloudinary.com/driqejelq/image/upload/v1782974545/Static/color_oczh4s.svg',
     image: 'https://res.cloudinary.com/driqejelq/image/upload/v1782974545/Static/image_h6on6k.svg',
     diy: 'https://res.cloudinary.com/driqejelq/image/upload/v1782974545/Static/diy_uvbmk0.svg',
-    authentication: 'https://res.cloudinary.com/driqejelq/image/upload/v1792753107/Static/Asset_61_seatt0.svg'
+    authentication: 'https://res.cloudinary.com/driqejelq/image/upload/v1792753107/Static/Asset_61_seatt0.svg',
+    bg_nav_3: 'https://res.cloudinary.com/driqejelq/image/upload/v1793882866/Static/Asset_76_smq9kn.svg',
+    
 
 };

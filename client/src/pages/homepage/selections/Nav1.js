@@ -130,31 +130,7 @@ export default function Nav1({ item }) {
 
       <Context theme={theme} bp={bp}>{item.title_2}</Context>
 
-      <Tooltip
-        title="Để nút vậy thôi chứ không nhấn được"
-        arrow
-        placement="top"
-        componentsProps={{
-          tooltip: {
-            sx: {
-              bgcolor: "black",
-              color: "white",
-              fontSize: 12,
-              border: "1px solid black",
-              boxShadow: "2px 2px 0px black",
-            },
-          },
-          arrow: {
-            sx: {
-              color: "black",
-            },
-          },
-        }} >
-
-        <ButtonLink>
-          <BoxImageHome component="img" src={optimizeCloudinaryUrl(STATIC_IMAGES.arrow, 30)} />
-        </ButtonLink>
-      </Tooltip>
+     
     </Box>
   );
 }

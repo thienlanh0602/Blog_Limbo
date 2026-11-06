@@ -4,7 +4,7 @@ export const ContextTag = ({ sx = {}, ...props }) => {
 
     return (
         <Typography
-            variant="h6"
+            fontSize={{ xs: 20, md: 40 }}
             sx={{
                 fontWeight: 700,
                 textTransform: "uppercase",

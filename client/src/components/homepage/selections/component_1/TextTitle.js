@@ -24,16 +24,13 @@ export const TextTitle = ({ children, bp, sx = {}, ...props }) => {
     return (
         <Typography
             gutterBottom={false}
-            fontStyle={'bold'}
             fontWeight={800}
-            textTransform='uppercase'
             lineHeight={1}
             sx={{
                 marginTop: { xs: 4, sm: 6, md: 16 },
-                fontSize: { xs: 64, sm: 120, md: 190 },
+                fontSize: { xs: 110, sm: 120, md: 190 },
                 letterSpacing: { xs: '-4px', sm: '-6px', md: '-11px' },
                 zIndex: 1,
-
                 willChange: "transform",
                 animation: `${floatAnimation} 7s ease-in-out infinite`,
 
