@@ -31,6 +31,7 @@ export const Context = ({
                 maxWidth: { xs: 280, sm: 320, md: 'none' },
                 whiteSpace: 'normal',
                 px: { xs: 2, md: 0 },
+                pt: { xs: 1, md: 2 },
                 zIndex: 1,
                 ...sx,
             }}

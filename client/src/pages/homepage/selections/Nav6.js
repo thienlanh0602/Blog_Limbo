@@ -102,7 +102,7 @@ const textSx = {
   flex: "0 1 auto", // cho phép co lại khi hết chỗ
   minWidth: 0,      // bắt buộc để noWrap + "..." hoạt động trong flex
   fontWeight: 500,
-  fontSize: { xs: 24, md: 24 },
+  fontSize: { xs: 20, md: 24 },
   textAlign: "left",
 };
 
@@ -213,7 +213,7 @@ const Nav6 = ({ item }) => {
             list = detailedData?.tracks || [];
           }
 
-         setTracks(shuffle(list).slice(0, MAX_TRACKS)); // lấy ngẫu nhiên 6 bài
+          setTracks(shuffle(list).slice(0, MAX_TRACKS)); // lấy ngẫu nhiên 6 bài
 
         }
       } catch (error) {
@@ -268,7 +268,7 @@ const Nav6 = ({ item }) => {
           mx: "auto",
           boxSizing: "border-box",
           py: { xs: 6, md: 24 },
-          px: { xs: 2, sm: 3, md: 10 },
+          px: { xs: 4, sm: 3, md: 10 },
           display: "grid",
           // minmax(0, ...) để cột không bị chữ dài đẩy tràn ra ngoài
           gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "minmax(0, 1fr) minmax(0, 2fr)" },
@@ -290,7 +290,6 @@ const Nav6 = ({ item }) => {
             component="span"
             sx={{
               alignSelf: "flex-start",
-              px: 1.25,
               py: 0.5,
               borderRadius: "3px",
               fontSize: 20,
@@ -306,10 +305,9 @@ const Nav6 = ({ item }) => {
             component="span"
             sx={{
               alignSelf: "flex-start",
-              px: 1.25,
               py: 0.5,
               borderRadius: "3px",
-              fontSize: 32,
+              fontSize: { xs: 28, md: 32 },
               letterSpacing: 0.3,
               fontWeight: 300,
               textAlign: "left",

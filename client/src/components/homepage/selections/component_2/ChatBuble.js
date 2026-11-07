@@ -34,7 +34,7 @@ const ChatBubble = ({
           borderRadius: { xs: "16px", sm: "20px", md: "30px" },
           px: { xs: 1.5, md: 2.5 },
           py: { xs: 1, md: 2 },
-          maxWidth: { xs: "85%", sm: "70%", md: "100%" },
+          maxWidth: { xs: "100%", sm: "70%", md: "100%" },
           width: "fit-content",
         }}
       >
@@ -57,11 +57,11 @@ const ChatBubble = ({
           <Typography
             sx={{
               textAlign: isRight ? "right" : "left",
-              fontSize: { xs: 12, sm: 14, md: 16 },
+              fontSize: { xs: 14, sm: 14, md: 16 },
               fontWeight: 400,
               whiteSpace: "normal",
               overflowWrap: "break-word",
-              maxWidth: { xs: 150, sm: 220, md: 300 },
+              maxWidth: { xs: 170, sm: 220, md: 300 },
             }}
           >
             {text}

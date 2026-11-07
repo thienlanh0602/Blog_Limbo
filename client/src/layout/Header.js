@@ -4,31 +4,35 @@ import { STATIC_IMAGES } from '../utils/Staticimages';
 import { optimizeCloudinaryUrl } from '../utils/Cloudinaryhelper';
 import { useState, useEffect } from 'react';
 
-import { BoxImage, BoxLogo, BoxNav, ButtonImage, ButtonNav, EditDrawer, StyleAppBar, StyleContainer, StyleToolbar, TypographyLogo } from "../components/header/header";
+import {
+    BoxLogo, BoxNav, ButtonNav, MobileNavBar, MobileNavItem,
+    StyleAppBar, StyleContainer, StyleToolbar, TypographyLogo,
+} from "../components/header/header";
 
 const navBar = [
     { label: 'RESUME', path: '/resume' },
     { label: 'MUSIC', path: '/music' },
-    { label: 'KABAN', path: '/color' },
+    { label: 'KABAN', path: '/kaban' },
     { label: 'IMAGE', path: '/image' },
     { label: 'FM', path: '/fm' },
 ]
 
-const COMPACT_HEADER_ROUTES = ['/music', '/image', '/fm' ];
+const COMPACT_HEADER_ROUTES = ['/music', '/image', '/fm'];
 
-// Màu nền header khi thu nhỏ, theo từng trang (trang không khai báo thì giữ nền mặc định)
+// Màu nền header khi thu nhỏ, theo từng trang
 const COMPACT_HEADER_BG = {
     '/music': '#4EFCD3',
     '/fm': '#FFD100',
 };
 
-// Giờ hiện tại dạng "03:45 PM /26" (26 là 2 số cuối của năm), cập nhật mỗi phút
+const EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
+
+// Giờ hiện tại dạng "03:45 PM /26", cập nhật đầu mỗi phút
 const HeaderClock = () => {
     const [now, setNow] = useState(() => new Date());
 
     useEffect(() => {
         let timer;
-        // Hẹn đúng đầu mỗi phút để đồng hồ luôn chạy khớp, không phải cập nhật mỗi giây
         const scheduleNext = () => {
             timer = setTimeout(() => {
                 setNow(new Date());
@@ -43,8 +47,8 @@ const HeaderClock = () => {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
-    }); // vd: "03:45 PM"
-    const year = String(now.getFullYear()).slice(-2); // 2026 -> "26"
+    });
+    const year = String(now.getFullYear()).slice(-2);
 
     return (
         <Box
@@ -57,7 +61,7 @@ const HeaderClock = () => {
                 fontSize: { xs: '0.8rem', md: '0.9rem' },
                 fontWeight: 600,
                 letterSpacing: '0.04em',
-                fontVariantNumeric: 'tabular-nums', // chữ số cùng độ rộng, đồng hồ không bị nhảy
+                fontVariantNumeric: 'tabular-nums',
                 color: 'inherit'
             }}
         >
@@ -66,21 +70,32 @@ const HeaderClock = () => {
     );
 };
 
-// Icon 3 gạch (menu) vẽ bằng SVG, lấy màu theo chữ của nút
-const MenuLinesIcon = () => (
-    <svg
-        width="26"
-        height="26"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        style={{ display: 'block' }}
-    >
-        <path d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-);
+// Icon 3 gạch <-> dấu X, có transition
+const MenuLinesIcon = ({ open }) => {
+    const base = {
+        transformOrigin: '12px 12px',
+        transition: `transform 0.35s ${EASE}, opacity 0.2s ease`,
+    };
+    return (
+        <svg
+            width="26"
+            height="26"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            style={{ display: 'block' }}
+        >
+            <line x1="4" y1="6" x2="20" y2="6"
+                style={{ ...base, transform: open ? 'translateY(6px) rotate(45deg)' : 'none' }} />
+            <line x1="4" y1="12" x2="20" y2="12"
+                style={{ ...base, opacity: open ? 0 : 1, transform: open ? 'scaleX(0)' : 'none' }} />
+            <line x1="4" y1="18" x2="20" y2="18"
+                style={{ ...base, transform: open ? 'translateY(-6px) rotate(-45deg)' : 'none' }} />
+        </svg>
+    );
+};
 
 function Header() {
     const theme = useTheme();
@@ -94,6 +109,9 @@ function Header() {
     const compact = scrolled || isCompactPage;
     const compactBg = compact ? COMPACT_HEADER_BG[location.pathname] : undefined;
 
+    // Chỉ coi là "mở" khi đang ở mobile và header chưa thu nhỏ
+    const menuOpen = open && isMobile && !compact;
+
     useEffect(() => {
         const handleScroll = () => {
             if (open) setOpen(false);
@@ -102,6 +120,11 @@ function Header() {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, [open]);
+
+    // Đổi trang thì đóng menu
+    useEffect(() => {
+        setOpen(false);
+    }, [location.pathname]);
 
     useEffect(() => {
         const saveScrollPos = () => {
@@ -137,13 +160,6 @@ function Header() {
         }
     };
 
-    const handleDrawerNavClick = (e) => {
-        if (e.currentTarget) {
-            e.currentTarget.blur();
-        }
-        setOpen(false);
-    };
-
     return (
         <StyleAppBar
             showHeader={true}
@@ -159,21 +175,28 @@ function Header() {
             } : undefined}
         >
             <StyleToolbar sx={{
-                transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: `all 0.35s ${EASE}`,
                 minHeight: compact ? { xs: 44, md: 52 } : undefined,
-                // Thu nhỏ: bỏ lề ngang để logo không bị tràn ra ngoài hộp hẹp
                 ...(compact && { px: 0 }),
+                // Menu mở: bỏ padding phải để nút X sát mép
+                ...(menuOpen && { pr: { xs: 1, sm: 2 } }),
             }}>
                 <StyleContainer
                     sx={{
-                        transition: 'padding 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-                        // Thu nhỏ: bỏ lề ngang và căn logo vào giữa hộp
+                        transition: `padding 0.35s ${EASE}`,
                         ...(compact && { px: 0, justifyContent: 'center' }),
+                        ...(menuOpen && { pr: 0 }),
                     }}
                 >
-
+                    {/* Logo: trên mobile sẽ mờ + trượt ra khi mở menu */}
                     <BoxLogo
                         onClick={handleLogoClick}
+                        sx={isMobile ? {
+                            transition: `opacity 0.3s ease, transform 0.35s ${EASE}`,
+                            opacity: menuOpen ? 0 : 1,
+                            transform: menuOpen ? 'translateX(-16px)' : 'translateX(0)',
+                            pointerEvents: menuOpen ? 'none' : 'auto',
+                        } : undefined}
                     >
                         <Box
                             component="img"
@@ -184,13 +207,10 @@ function Header() {
                                     ? { xs: 22, sm: 24, md: 24 }
                                     : { xs: 26, sm: 28, md: 30 },
                                 transform: 'scaleX(-1)',
-                                transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                                transition: `height 0.35s ${EASE}`,
                             }}
                         />
-                        <TypographyLogo sx={{
-                            // fontSize: compact ? { xs: '0.8rem', md: '0.9rem' } : undefined,
-                            transition: 'font-size 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-                        }}>
+                        <TypographyLogo sx={{ transition: `font-size 0.35s ${EASE}` }}>
                             Limbo
                         </TypographyLogo>
                     </BoxLogo>
@@ -198,52 +218,52 @@ function Header() {
                     {!compact && (
                         isMobile ? (
                             <>
-                                {/* Điện thoại: chỉ icon 3 gạch, không nền, không viền, không bóng */}
+                                {/* Thanh nav ngang, trượt vào đúng chỗ logo */}
+                                <MobileNavBar open={menuOpen}>
+                                    {navBar.map((item, i) => (
+                                        <MobileNavItem
+                                            key={item.path}
+                                            component={Link}
+                                            to={item.path}
+                                            open={menuOpen}
+                                            index={i}
+                                            active={location.pathname === item.path}
+                                            tabIndex={menuOpen ? 0 : -1}
+                                            onClick={() => setOpen(false)}
+                                        >
+                                            {item.label}
+                                        </MobileNavItem>
+                                    ))}
+                                </MobileNavBar>
+
                                 <IconButton
-                                    aria-label="Mở menu"
+                                    aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
+                                    aria-expanded={menuOpen}
                                     disableRipple
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={(e) => {
                                         e.currentTarget.blur();
-                                        setOpen(true);
+                                        setOpen((prev) => !prev);
                                     }}
                                     sx={{
                                         p: 0.5,
+                                        ml: 'auto',        // luôn đẩy sát phải
+                                        flexShrink: 0,
                                         color: 'black',
                                         backgroundColor: 'transparent',
                                         WebkitTapHighlightColor: 'transparent',
                                         '&:hover': { backgroundColor: 'transparent' },
-                                        '&:active': { backgroundColor: 'transparent', opacity: 0.6 }
+                                        '&:active': { backgroundColor: 'transparent', opacity: 0.6 },
                                     }}
                                 >
-                                    <MenuLinesIcon />
+                                    <MenuLinesIcon open={menuOpen} />
                                 </IconButton>
-
-                                <EditDrawer open={open} onClose={() => setOpen(false)}>
-                                    {navBar.map((item) => (
-                                        <ButtonNav
-                                            onClick={handleDrawerNavClick}
-                                            key={item.path}
-                                            LinkComponent={Link}
-                                            to={item.path}
-                                        >
-                                            {item.label}
-                                        </ButtonNav>
-                                    ))}
-                                    <ButtonImage onClick={(e) => e.currentTarget.blur()}>
-                                        <BoxImage component='img' src={optimizeCloudinaryUrl(STATIC_IMAGES.arrow, 30)} />
-                                    </ButtonImage>
-                                </EditDrawer>
                             </>
                         ) : (
                             <>
                                 <BoxNav>
                                     {navBar.map((item) => (
-                                        <ButtonNav
-                                            key={item.path}
-                                            LinkComponent={Link}
-                                            to={item.path}
-                                        >
+                                        <ButtonNav key={item.path} LinkComponent={Link} to={item.path}>
                                             {item.label}
                                         </ButtonNav>
                                     ))}

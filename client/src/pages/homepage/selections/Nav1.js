@@ -1,12 +1,19 @@
-import { Box, useTheme, Tooltip } from "@mui/material";
-import { BoxImageHome, commonSxDisplay } from "../../../components/homepage/home";
+import { Box, useTheme, IconButton } from "@mui/material";
+import { commonSxDisplay } from "../../../components/homepage/home";
 import { STATIC_IMAGES } from '../../../utils/Staticimages';
 import { optimizeCloudinaryUrl } from '../../../utils/Cloudinaryhelper';
 import { TextTitle } from "../../../components/homepage/selections/component_1/TextTitle";
 import { breakpoints } from "../../../theme/breakpoints";
 import { ContextTag } from "../../../components/homepage/selections/component_1/ContextTag";
 import { Context } from "../../../components/homepage/selections/component_1/Context";
-import { ButtonLink } from "../../../components/homepage/selections/component_1/ButtonLink";
+
+const socialLinks = [
+  { href: "https://discord.gg/QVMKmE8d", icon: optimizeCloudinaryUrl(STATIC_IMAGES.discord, 200) },
+  { href: "https://github.com/thienlanh0602", icon: optimizeCloudinaryUrl(STATIC_IMAGES.github, 200) },
+  { href: "https://www.facebook.com/limbo.thien.lanh/", icon: optimizeCloudinaryUrl(STATIC_IMAGES.facebook, 200) },
+  { href: "https://www.instagram.com/limbo._.l/", icon: optimizeCloudinaryUrl(STATIC_IMAGES.insta, 200) },
+];
+
 
 export default function Nav1({ item }) {
 
@@ -23,9 +30,10 @@ export default function Nav1({ item }) {
         position: "relative",
         px: { xs: 2, md: 0 },
         width: '100%',
+        boxSizing: "border-box",
         pt: { xs: 34, sm: 14, md: 18 },
-        pb: { xs: 16, md: 36},
-        
+        pb: { xs: 16, md: 36 },
+
       }}
     >
       <Box
@@ -37,7 +45,7 @@ export default function Nav1({ item }) {
           top: { xs: '45%', md: '28%' },
           right: { xs: '20%', md: '30%' },
           width: { xs: 28, md: 60 },
-          zIndex: 10, 
+          zIndex: 10,
           pointerEvents: "none",
 
           animation: "spinScaleLarge 4s infinite ease-in-out",
@@ -124,13 +132,39 @@ export default function Nav1({ item }) {
       />
 
       <TextTitle theme={theme} bp={bp}>{item.title}</TextTitle>
-      <ContextTag>
-        @ IM THIEN LANH
-      </ContextTag>
-
       <Context theme={theme} bp={bp}>{item.title_2}</Context>
+      {/* <ContextTag>
+        @ IM THIEN LANH
+      </ContextTag> */}
 
-     
+
+      <Box
+        sx={{
+          justifyContent: { xs: "center", md: "flex-end" },
+          gap: { xs: 0.5, md: 1 },
+          order: { xs: 1, md: 3 },
+        }}
+      >
+        {socialLinks.map((link) => (
+          <IconButton
+            key={link.href}
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            sx={{ p: { xs: 0.75, md: 1.75 } }}
+          >
+            <Box
+              component="img"
+              src={link.icon}
+              alt=""
+              sx={{ height: { xs: 22, md: 36 } }}
+            />
+          </IconButton>
+        ))}
+
+      </Box>
+
+
     </Box>
   );
 }

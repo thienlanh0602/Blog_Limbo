@@ -25,7 +25,7 @@ function Color() {
                         fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' } 
                     }}
                 >
-                    Color
+                    Kanban Board
                 </Typography>
 
                 {/* Nội dung bên dưới */}

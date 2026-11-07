@@ -3,16 +3,11 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 
-const HIDE_FOOTER_ROUTES = ['/music', '/image', '/fm'];
-
 function Layout() {
     const { pathname } = useLocation();
-    const path = pathname.toLowerCase();
 
-    // Khớp cả "/fm", "/fm/" và "/fm/bat-ky-gi"
-    const shouldHideFooter = HIDE_FOOTER_ROUTES.some(
-        (route) => path === route || path.startsWith(`${route}/`)
-    );
+    // Chỉ hiện footer ở trang chủ ("/" hoặc "")
+    const isHome = pathname === '/' || pathname === '';
 
     return (
         <>
@@ -32,7 +27,7 @@ function Layout() {
             >
                 <Outlet />
             </Box>
-            {!shouldHideFooter && <Footer />}
+            {isHome && <Footer />}
         </>
     );
 }

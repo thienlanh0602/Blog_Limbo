@@ -91,7 +91,7 @@ function Routers() {
           <Route path='resume' element={< Resume />} />
           <Route path='image' element={< Image />} />
           <Route path='music' element={<Music />} />
-          <Route path='color' element={<Color />} />
+          <Route path='kaban' element={<Color />} />
           <Route path='fm' element={<DIY />} />
         </Route>
 
@@ -103,7 +103,7 @@ function Routers() {
           } />
           <Route path='resume' element={< ResumeAdmin />} />
           <Route path='music' element={< MusicAdmin />} />
-          <Route path='color' element={< ColorAdmin />} />
+          <Route path='kaban' element={< ColorAdmin />} />
           <Route path='image' element={< ImageAdmin />} />
           <Route path='fm' element={< DIYAdmin />} />
 

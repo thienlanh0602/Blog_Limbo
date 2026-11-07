@@ -1,4 +1,4 @@
-import { AppBar, Box, Button, Container, Drawer, Toolbar, Typography, useMediaQuery, useTheme } from "@mui/material"
+import { AppBar, Box, Button, Container, Toolbar, Typography, useMediaQuery, useTheme } from "@mui/material"
 
 export const StyleAppBar = ({ children, position = 'fixed', showHeader = true, scrolled = false, sx = {}, ...props }) => {
     return (
@@ -24,7 +24,9 @@ export const StyleAppBar = ({ children, position = 'fixed', showHeader = true, s
                 WebkitTouchCallout: 'none',
                 userSelect: 'none',
                 ...sx,
-            }} {...props}>
+            }}
+            {...props}
+        >
             {children}
         </AppBar>
     )
@@ -39,7 +41,8 @@ export const StyleToolbar = ({ children, sx = {}, ...props }) => {
                 px: { xs: 4, sm: 2, md: 1 },
                 ...sx
             }}
-            {...props}>
+            {...props}
+        >
             {children}
         </Toolbar>
     )
@@ -65,14 +68,16 @@ export const StyleContainer = ({ children, sx = {}, ...props }) => {
                 px: { xs: 2, sm: 3, md: 5 },
                 width: '100%',
                 cursor: "pointer",
-
                 ...sx,
-            }} {...props}>
+            }}
+            {...props}
+        >
             {children}
         </Container>
     )
 }
 
+// FIX: trước đây sx bị bỏ qua, giờ được merge vào
 export const BoxLogo = ({ children, sx = {}, ...props }) => {
     return (
         <Box
@@ -81,7 +86,8 @@ export const BoxLogo = ({ children, sx = {}, ...props }) => {
                 alignItems: 'center',
                 textDecoration: 'none',
                 gap: 1,
-                color: 'black'
+                color: 'black',
+                ...sx,
             }}
             {...props}
         >
@@ -90,6 +96,7 @@ export const BoxLogo = ({ children, sx = {}, ...props }) => {
     )
 }
 
+// FIX: merge sx, giữ lại style theo breakpoint
 export const BoxNav = ({ children, sx = {}, ...props }) => {
     return (
         <Box
@@ -100,7 +107,10 @@ export const BoxNav = ({ children, sx = {}, ...props }) => {
                 [theme.breakpoints.between('sm', 'md')]: {
                     gap: 2
                 },
-            })} {...props}>
+                ...(typeof sx === 'function' ? sx(theme) : sx),
+            })}
+            {...props}
+        >
             {children}
         </Box>
     )
@@ -114,67 +124,20 @@ export const ButtonNav = ({ children, color = 'inherit', sx = {}, ...props }) =>
                 display: 'flex',
                 fontSize: { xs: 12, sm: 15 },
                 fontWeight: 600,
-
                 flexDirection: 'column',
                 textTransform: 'none',
                 px: 0,
                 justifyContent: 'flex-end',
                 width: '100%',
                 transition: 'all 0s ease',
-                '&:hover': {
-                    color: '#1fc3a1',
-                },
-                '&:active': {
-                    color: '#1fc3a1',
-                },
+                '&:hover': { color: '#1fc3a1' },
+                '&:active': { color: '#1fc3a1' },
                 ...sx,
             }}
-            {...props}>
+            {...props}
+        >
             {children}
         </Button>
-    )
-}
-
-export const ButtonImage = ({ children, sx = {}, ...props }) => {
-    return (
-        <Button
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => e.currentTarget.blur()}
-            sx={{
-                backgroundColor: '#4efcd3',
-                border: '1px solid black',
-                borderRadius: 0,
-                minWidth: { xs: 40, sm: 45 },
-                minHeight: { xs: 22, sm: 25 },
-                color: 'black',
-                boxShadow: '3px 3px 0px black',
-
-                WebkitTapHighlightColor: 'transparent',
-                WebkitTouchCallout: 'none',
-                userSelect: 'none',
-                "&:hover": { backgroundColor: "#4efcd3" },
-                "&:active": {
-                    backgroundColor: "#4efcd3",
-                    boxShadow: "1px 1px 0px black",
-                    transform: "translate(1px, 1px)",
-                },
-                ...sx,
-            }}
-            {...props} >
-
-            {children}
-        </Button>
-    )
-}
-
-export const BoxImage = ({ sx = {}, ...props }) => {
-    return (
-        <Box
-            sx={{
-                width: 10,
-                height: 10,
-                ...sx,
-            }} {...props} />
     )
 }
 
@@ -184,63 +147,62 @@ export const TypographyLogo = ({ fontStyle = 'bold', sx = {}, ...props }) => {
             fontStyle={fontStyle}
             fontWeight={600}
             sx={{ fontSize: { xs: 13, sm: 14 }, ...sx }}
-            {...props} />
+            {...props}
+        />
     )
 }
 
-export const EditDrawer = ({ children, sx = {}, onClose, ...props }) => {
-    const theme = useTheme();
-
-    const handleClose = (event, reason) => {
-        if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-        }
-        if (onClose) onClose(event, reason);
-    };
-
+// Thanh nav ngang cho mobile (xs), nằm đè lên vùng logo
+export const MobileNavBar = ({ open, children, sx = {}, ...props }) => {
     return (
-        <Drawer
-            anchor="right"
-            hideBackdrop={false}
-            transitionDuration={0}
-            onClose={handleClose}
-            PaperProps={{
-                sx: {
-                    height: 'auto',
-                    position: 'absolute',
-                    backgroundColor: '#ffffff',
-                    boxShadow: "3px 3px 0px black",
-                    border: "1px solid black",
-                    top: { xs: 74, sm: 100, md: 120 },
-                    right: { xs: 14, sm: 24, md: 40 },
-                    px: { xs: 2, sm: 3, md: 4 },
-                    py: 2,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-end',
-                },
-            }}
-            ModalProps={{
-                keepMounted: false,
-                disableScrollLock: true,
-                disableRestoreFocus: true,
-                disableEnforceFocus: true,
-                BackdropProps: {
-                    sx: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.07)',
-                        backdropFilter: 'blur(1.3px)'
-                    },
-                },
-            }}
-            {...props}>
-            <Box sx={{
+        <Box
+            component="nav"
+            aria-hidden={!open}
+            sx={{
+                position: 'absolute', // định vị theo AppBar (đang fixed)
+                top: 0,
+                bottom: 0,
+                left: 20,
+                right: 56, // chừa chỗ cho nút menu / X
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
-                gap: 1,
-            }}>
-                {children}
-            </Box>
-        </Drawer>
+                justifyContent: 'space-between',
+                opacity: open ? 1 : 0,
+                transform: open ? 'translateX(0)' : 'translateX(24px)',
+                pointerEvents: open ? 'auto' : 'none',
+                transition: 'opacity 0.3s ease, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                ...sx,
+            }}
+            {...props}
+        >
+            {children}
+        </Box>
+    )
+}
+
+export const MobileNavItem = ({ active = false, open = false, index = 0, sx = {}, ...props }) => {
+    const delay = open ? `${0.05 * index}s` : '0s';
+    return (
+        <Box
+            sx={{
+                px: 0.75,
+                py: 0.5,
+                textAlign: 'center',
+                textDecoration: 'none',
+                color: 'black',
+                fontSize: 10.5,
+                fontWeight: active ? 700 : 700,
+                letterSpacing: '0.03em',
+                whiteSpace: 'nowrap',
+                borderRadius: '20px',
+                backgroundColor: active ? 'rgba(0,0,0,0.08)' : 'transparent',
+                opacity: open ? 1 : 0,
+                transform: open ? 'translateX(0)' : 'translateX(12px)',
+                transition: `opacity 0.3s ease ${delay}, transform 0.35s ease ${delay}`,
+                WebkitTapHighlightColor: 'transparent',
+                ...sx,
+            }}
+            {...props}
+        />
     )
 }

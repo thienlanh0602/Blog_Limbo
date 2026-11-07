@@ -1,81 +1,75 @@
 import { Box, Typography, IconButton } from "@mui/material";
-import { useEffect, useState } from "react";
 
-import { STATIC_IMAGES } from '../utils/Staticimages';
-import { optimizeCloudinaryUrl } from '../utils/Cloudinaryhelper';
+const tools = ["FIGMA", "VISUALCODE", "BLENDER", "ILLUSTRATOR"];
 
-const socialLinks = [
-  { href: "https://discord.gg/QVMKmE8d", icon: optimizeCloudinaryUrl(STATIC_IMAGES.discord, 200) },
-  { href: "https://github.com/thienlanh0602", icon: optimizeCloudinaryUrl(STATIC_IMAGES.github, 200) },
-  { href: "https://www.facebook.com/limbo.thien.lanh/", icon:optimizeCloudinaryUrl(STATIC_IMAGES.facebook, 200) },
-  { href: "https://www.instagram.com/limbo._.l/", icon: optimizeCloudinaryUrl(STATIC_IMAGES.insta, 200) },
-];
+const columnSx = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+};
+
+const textSx = {
+  fontSize: { xs: 16, sm: 18, md: 24 },
+  fontWeight: 500,
+};
 
 function Footer() {
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const { scrollY } = window;
-      const { innerHeight } = window;
-      const { scrollHeight } = document.documentElement;
-
-      setShow(scrollY + innerHeight >= scrollHeight - 100);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-
   return (
     <Box
+      component="footer"
       sx={{
-        position: "fixed",
-        bottom: show ? { xs: 12, md: 20 } : -120,
-        left: "50%",
-        transform: "translateX(-50%)",
-        px: { xs: 2, sm: 3, md: 4 },
-        py: { xs: 1.5, md: 1 },
-        borderRadius: { xs: "30px", md: "50px" },
-        border: "1px solid black",
-        display: "flex",
-        flexDirection: { xs: "column", md: "row" },
+        width: "100%",
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" },
         alignItems: "center",
-        justifyContent: { xs: "center", md: "space-between" },
-        gap: { xs: 1, md: 0 },
-        width: { xs: "70%", sm: "85%", md: "80%" },
-        maxWidth: 1000,
-        zIndex: 1200,
-        transition: "all 0.3s ease",
-        backgroundColor: "white",
+        borderTop: "0.5px solid rgba(0, 0, 0, 0.2)",
+        rowGap: { xs: 2, md: 0 },
+        py: { xs: 3, md: 4 },
+        px: { xs: 2, md: 6 },
+        boxSizing: "border-box",
       }}
     >
-      <Typography sx={{ fontWeight: 200, fontSize: { xs: 10, sm: 12 }, order: { xs: 2, md: 0 } }}>
-        © 2025 Limbo / ThienLanh
-      </Typography>
-
+      {/* Cột 1: sát trái (md), giữa (xs) */}
       <Box
-        textAlign="center"
         sx={{
-          display: { xs: "none", sm: "block" },
-          order: { xs: 0, md: 1 },
+          ...columnSx,
+          justifyContent: { xs: "center", md: "flex-start" },
+          textAlign: { xs: "center", md: "left" },
+          order: { xs: 3, md: 1 },
         }}
       >
-        <Typography variant="caption" sx={{ fontWeight: 400, letterSpacing: 1, fontSize: { xs: 10, md: 13 } }}>
-          FIGMA &nbsp; VISUALCODE
-        </Typography>
-        <Typography variant="caption" sx={{ fontWeight: 400, letterSpacing: 1, fontSize: { xs: 10, md: 13 }, display: { xs: "block", md: "inline" } }}>
-          &nbsp; BLENDER &nbsp; ILLUSTRATOR
-        </Typography>
+        <Typography sx={textSx}>@2025_limbo/thienlanh</Typography>
       </Box>
 
-      <Box sx={{ display: "flex", gap: 0.4, order: { xs: 1, md: 2 } }}>
-        {socialLinks.map((link) => (
-          <IconButton key={link.href} href={link.href} target="_blank" sx={{ p: { xs: 0.5, md: 1 } }}>
-            <Box component="img" src={link.icon} sx={{ height: { xs: 18, md: 22 } }} />
-          </IconButton>
+      {/* Cột 2: giữa */}
+      <Box
+        sx={{
+          ...columnSx,
+          flexWrap: "wrap",
+          columnGap: { xs: 1.5, md: 2 },
+          rowGap: 0.5,
+          order: { xs: 2, md: 2 },
+        }}
+      >
+        {tools.map((tool) => (
+          <Typography key={tool} sx={textSx}>
+            {tool}
+          </Typography>
         ))}
+      </Box>
+
+      {/* Cột 3: sát phải (md), giữa (xs) */}
+      <Box
+        sx={{
+          ...columnSx,
+          justifyContent: { xs: "center", md: "flex-end" },
+          gap: { xs: 0.5, md: 1 },
+          order: { xs: 1, md: 3 },
+        }}
+      >
+        <Typography sx={textSx}>Ca Mau, Viet Nam</Typography>
+
       </Box>
     </Box>
   );

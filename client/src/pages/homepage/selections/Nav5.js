@@ -10,29 +10,82 @@ const LINE_EXTEND = 50; // line nhô ra ngoài mép chấm đầu và chấm cu�
 const EXTEND = DOT_RADIUS + LINE_EXTEND; // tính từ tâm chấm
 
 // Vị trí ngang của đường kẻ = cột năm + gap + nửa cột chấm
-const LINE_LEFT = { xs: "76px", md: "150px" };
+const LINE_LEFT = { xs: "52.9px", md: "89.5px" };
 
-const StepItem = ({ item, active }) => {
+// ===== Hiệu ứng hiện dần khi cuộn tới (chạy 1 lần, F5 mới chạy lại) =====
+const played = new Set(); // nằm ngoài component: chuyển trang trong SPA không chạy lại
+
+const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+
+const useRevealOnce = (id) => {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(() => played.has(id));
+
+  useEffect(() => {
+    if (played.has(id)) return;
+
+    const el = ref.current;
+    if (!el) return;
+
+    if (!("IntersectionObserver" in window)) {
+      played.add(id);
+      setVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          played.add(id);
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      {
+        threshold: 0,
+        rootMargin: "0px 0px -10% 0px", // lọt vào 10% từ đáy màn hình là chạy
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [id]);
+
+  return [ref, visible];
+};
+
+const fade = (visible, delay) => ({
+  opacity: visible ? 1 : 0,
+  transform: visible ? "translateY(0)" : "translateY(28px)",
+  transition: `opacity 0.8s ease ${delay}s, transform 0.9s ${EASE} ${delay}s`,
+  willChange: "opacity, transform",
+});
+
+// ===== Một mốc timeline =====
+const StepItem = ({ item, active, id }) => {
+  const [ref, visible] = useRevealOnce(id);
   const [head, ...rest] = (item.title_2 || "").split("\n");
   const body = rest.join("\n").trim();
 
   return (
     <Box
+      ref={ref}
       data-step
       sx={{
         display: "grid",
-        gridTemplateColumns: { xs: "56px 24px 1fr", md: "110px 48px 1fr" },
+        gridTemplateColumns: { xs: "34px 24px 1fr", md: "50px 48px 1fr" },
         columnGap: { xs: 1, md: 2 },
         pb: { xs: 5, md: 8 },
       }}
     >
+      {/* Cột năm + ảnh: hiện trước */}
       <Box
         sx={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "flex-end", // năm và ảnh cùng sát phải
+          alignItems: "flex-end",
+          ...fade(visible, 0),
         }}
-
       >
         <Typography
           sx={{
@@ -49,10 +102,10 @@ const StepItem = ({ item, active }) => {
         <CardMedia
           component="img"
           src={item.image}
+          alt={item.title}
           sx={{
-            width: "50%",
+            width: "100%",
             mt: 1,
-            textAlign: "right",
             objectFit: "contain",
             transition: "transform 0.3s ease",
             "&:hover": { transform: "scale(1.1)" },
@@ -60,7 +113,7 @@ const StepItem = ({ item, active }) => {
         />
       </Box>
 
-      {/* Chấm tròn */}
+      {/* Chấm tròn: không hiệu ứng, đổi màu theo scroll */}
       <Box sx={{ position: "relative" }}>
         <Box
           sx={{
@@ -80,11 +133,11 @@ const StepItem = ({ item, active }) => {
         />
       </Box>
 
-      {/* Nội dung */}
-      <Box>
+      {/* Nội dung: hiện sau 0.25s */}
+      <Box sx={{ ...fade(visible, 0.25) }}>
         <Typography
           sx={{
-            fontSize: { xs: 24, md: 24 },
+            fontSize: { xs: 20, md: 24 },
             fontWeight: 500,
             lineHeight: 1.2,
             textAlign: "left",
@@ -112,6 +165,7 @@ const StepItem = ({ item, active }) => {
   );
 };
 
+// ===== Timeline =====
 const Timeline = ({ items }) => {
   const wrapRef = useRef(null);
   const [offsets, setOffsets] = useState([]);
@@ -129,8 +183,8 @@ const Timeline = ({ items }) => {
     progress < 0
       ? 0
       : Math.min(progress, trackHeight) +
-      EXTEND +
-      (progress >= trackHeight ? EXTEND : 0);
+        EXTEND +
+        (progress >= trackHeight ? EXTEND : 0);
 
   useEffect(() => {
     const measure = () => {
@@ -177,7 +231,10 @@ const Timeline = ({ items }) => {
   }, []);
 
   return (
-    <Box ref={wrapRef} sx={{ position: "relative", display: "flex", flexDirection: "column" }}>
+    <Box
+      ref={wrapRef}
+      sx={{ position: "relative", display: "flex", flexDirection: "column" }}
+    >
       {/* Đường nền (xám) */}
       <Box
         sx={{
@@ -207,7 +264,8 @@ const Timeline = ({ items }) => {
 
       {items.map((item, index) => (
         <StepItem
-          key={item._id}
+          key={item._id ?? index}
+          id={`${item._id ?? "step"}-${index}`}
           item={item}
           active={offsets.length > 0 && progress >= offsets[index]}
         />
@@ -216,10 +274,11 @@ const Timeline = ({ items }) => {
   );
 };
 
+// ===== Nav5 =====
 const Nav5 = ({ header, items }) => {
   if (!header || !items || items.length === 0) return null;
 
-  const sortedItems = items.toSorted((a, b) => {
+  const sortedItems = [...items].sort((a, b) => {
     const yearA = parseInt(a.title) || 0;
     const yearB = parseInt(b.title) || 0;
     return yearA - yearB;
@@ -234,7 +293,7 @@ const Nav5 = ({ header, items }) => {
           mx: "auto",
           boxSizing: "border-box",
           py: { xs: 6, md: 24 },
-          px: { xs: 2, sm: 3, md: 10 },
+          px: { xs: 4, sm: 3, md: 10 },
           display: "grid",
           gridTemplateColumns: { xs: "1fr", md: "1fr 2fr" },
           columnGap: { md: 6 },
@@ -242,11 +301,12 @@ const Nav5 = ({ header, items }) => {
           alignItems: "start",
         }}
       >
-        {/* Cột trái */}
+        {/* Cột trái: đứng yên, không hiệu ứng */}
         <Box
           sx={{
             display: "flex",
             flexDirection: "column",
+            textAlign: "left",
             position: { md: "sticky" },
             top: { md: 100 },
             pb: { xs: 6 },
@@ -256,7 +316,6 @@ const Nav5 = ({ header, items }) => {
             component="span"
             sx={{
               alignSelf: "flex-start",
-              px: 1.25,
               py: 0.5,
               borderRadius: "3px",
               fontSize: 20,
@@ -272,10 +331,9 @@ const Nav5 = ({ header, items }) => {
             component="span"
             sx={{
               alignSelf: "flex-start",
-              px: 1.25,
+              textAlign: "left",
               py: 0.5,
-              borderRadius: "3px",
-              fontSize: 32,
+              fontSize: { xs: 28, md: 32 },
               letterSpacing: 0.3,
               fontWeight: 300,
             }}
