@@ -26,6 +26,35 @@ export const MusicPlayerBar = ({
 }) => {
     return (
         <Box sx={{ pt: 2.5, pb: { xs: 3, md: 1.5 }, mt: 'auto', flexShrink: 0, width: '100%' }}>
+            {/* Thanh trượt thời gian bài hát */}
+            <Box sx={{ position: 'relative', width: '100%', height: '28px', display: 'flex', alignItems: 'center', mb: { xs: 4, md: 4 } }}>
+                <Slider
+                    size="small"
+                    min={0}
+                    max={duration || 100}
+                    value={currentTime}
+                    onChange={handleSliderChange}
+                    sx={{
+                        position: 'absolute', width: '100%', height: { xs: 2, md: 30 }, padding: 0,
+                        '& .MuiSlider-track': { display: 'none' },
+                        '& .MuiSlider-rail': { display: 'none' },
+                        '& .MuiSlider-thumb': {
+                            width: '2px',
+                            height: '100%',
+                            borderRadius: 0,
+                            backgroundColor: '#4efcd3',
+                            boxShadow: '0px 0px 8px rgba(255,255,255,0.5)',
+                            opacity: 1,
+                            transition: 'none',
+                            '&:hover, &.Mui-focusVisible, &.Mui-active': {
+                                boxShadow: '0px 0px 14px #4efcd3',
+                                backgroundColor: '#4efcd3'
+                            }
+                        }
+                    }}
+                />
+            </Box>
+
             <Grid container alignItems="center" spacing={{ xs: 2, md: 0 }}>
                 <Grid item xs={6} md={4} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                     <Typography
