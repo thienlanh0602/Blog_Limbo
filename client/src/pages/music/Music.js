@@ -8,7 +8,7 @@ import { useAudioEQ } from '../../pages/homepage/selections/useAudioEq';
 import { PlaylistCards } from './components/PlaylistCards';
 import { MusicPlayerBar } from './components/MusicPlayerBar';
 
-// Đọc/ghi localStorage an toàn, giới hạn dung lượng lưu trữ tránh tràn bộ nhớ trình duyệt
+// Đọc/ghi localStorage an toàn (dữ liệu hỏng hoặc đầy bộ nhớ sẽ không làm sập trang)
 const readCache = (key, fallback) => {
     try {
         const raw = localStorage.getItem(key);
@@ -20,31 +20,15 @@ const readCache = (key, fallback) => {
 
 const writeCache = (key, value) => {
     try {
-        const serialized = JSON.stringify(value);
-        // Kiểm tra nếu dữ liệu quá lớn (> 2MB) thì bỏ qua không lưu cứng để tránh nghẽn localStorage
-        if (serialized.length < 2 * 1024 * 1024) {
-            localStorage.setItem(key, serialized);
-        }
+        localStorage.setItem(key, JSON.stringify(value));
     } catch (err) {
-        console.warn(`Không thể lưu cache "${key}" (có thể đầy bộ nhớ):`, err);
+        console.warn(`Không thể lưu cache "${key}":`, err);
     }
-};
-
-const generateDummyWaveform = (count = 150) => {
-    const raw = [];
-    let value = 45;
-    for (let i = 0; i < count; i++) {
-        const step = (Math.random() - 0.5) * 16;
-        value += step;
-        value = Math.max(8, Math.min(95, value));
-        raw.push(Math.round(value));
-    }
-    return raw;
 };
 
 function Music() {
-    const [playlists, setPlaylists] = useState(() => readCache('offline_playlists', []));
-    const [loading, setLoading] = useState(() => readCache('offline_playlists', []).length === 0);
+    const [playlists, setPlaylists] = useState(() => readCache('offline_playlists', []) || []);
+    const [loading, setLoading] = useState(() => (readCache('offline_playlists', []) || []).length === 0);
 
     const [currentTrack, setCurrentTrack] = useState(() => readCache('offline_last_track', null));
     const [isPlaying, setIsPlaying] = useState(false);
@@ -67,28 +51,13 @@ function Music() {
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-    const waveformCount = isMobile ? 50 : (isTablet ? 100 : 150);
-    const baseWaveformData = useMemo(() => generateDummyWaveform(150), []);
-
-    const activeWaveformData = useMemo(() => {
-        return baseWaveformData.slice(0, waveformCount);
-    }, [baseWaveformData, waveformCount]);
-
     const flatTrackList = useMemo(
-        () => playlists.flatMap(pl => pl.tracks || []),
+        () => (Array.isArray(playlists) ? playlists.flatMap(pl => pl?.tracks || []) : []),
         [playlists]
     );
 
     const activeTrack = currentTrack || flatTrackList[0] || null;
     const progressPercent = duration ? (currentTime / duration) * 100 : 0;
-
-    const currentPlaylistCover = useMemo(() => {
-        if (!activeTrack || playlists.length === 0) return FALLBACK_COVER_SVG;
-        const matchedPlaylist = playlists.find(pl =>
-            pl.tracks && pl.tracks.some(track => track._id === activeTrack._id)
-        );
-        return getSafeThumbnail(matchedPlaylist?.thumbnail || playlists[0]?.thumbnail);
-    }, [activeTrack, playlists]);
 
     const handleCoverLoad = useCallback((id) => {
         setLoadedCovers(prev => (prev[id] ? prev : { ...prev, [id]: true }));
@@ -112,7 +81,7 @@ function Music() {
 
                 const fullPlaylists = await Promise.all(
                     list.map(async (pl) => {
-                        if (pl.tracks && pl.tracks.length > 0 && typeof pl.tracks[0] === 'object') {
+                        if (pl?.tracks && pl.tracks.length > 0 && typeof pl.tracks[0] === 'object') {
                             return pl;
                         }
                         try {
@@ -129,7 +98,7 @@ function Music() {
                     writeCache('offline_playlists', fullPlaylists);
                 }
             } catch (error) {
-                console.warn("Lỗi mạng, dùng cache cục bộ.", error);
+                console.warn("Đang offline hoặc lỗi mạng. Sử dụng dữ liệu đã lưu cục bộ.", error);
             } finally {
                 if (isMounted) setLoading(false);
             }
@@ -140,7 +109,7 @@ function Music() {
 
     useEffect(() => {
         if (currentTrack) {
-            writeCache('offline_last_track', { _id: currentTrack._id, title: currentTrack.title, cloudinaryUrl: currentTrack.cloudinaryUrl });
+            writeCache('offline_last_track', currentTrack);
         }
     }, [currentTrack]);
 
@@ -149,6 +118,7 @@ function Music() {
         if (!currentTrack || !audio) return;
 
         let cancelled = false;
+
         setCurrentTime(0);
         setDuration(0);
 
@@ -157,11 +127,13 @@ function Music() {
                 await audio.play();
                 if (!cancelled) setIsPlaying(true);
             } catch (err) {
-                if (cancelled || err.name === "AbortError") return;
+                if (cancelled) return;
+                if (err.name === "AbortError") return;
                 if (err.name === "NotAllowedError") {
                     setIsPlaying(false);
                     return;
                 }
+                console.error("Lỗi phát nhạc:", err);
                 setIsPlaying(false);
             }
         };
@@ -185,11 +157,16 @@ function Music() {
         if (!audioRef.current) return;
 
         if (audioRef.current.paused) {
-            audioRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(err => {
-                    if (err.name !== "AbortError") setIsPlaying(false);
-                });
+            const playPromise = audioRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => setIsPlaying(true))
+                    .catch(err => {
+                        if (err.name === "AbortError") return;
+                        console.warn("Không thể phát nhạc:", err.message);
+                        setIsPlaying(false);
+                    });
+            }
         } else {
             audioRef.current.pause();
             setIsPlaying(false);
@@ -206,7 +183,7 @@ function Music() {
         const handleKeyDown = (event) => {
             if (event.code === 'Space') {
                 const target = event.target;
-                if (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.getAttribute('role') === 'slider') return;
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('role') === 'slider') return;
                 event.preventDefault();
                 handlePlayPause();
             }
@@ -253,7 +230,7 @@ function Music() {
     const getRandomTrack = useCallback((excludeId) => {
         if (flatTrackList.length === 0) return null;
         if (flatTrackList.length === 1) return flatTrackList[0];
-        const candidates = flatTrackList.filter(t => t._id !== excludeId);
+        const candidates = flatTrackList.filter(t => t?._id !== excludeId);
         return candidates[Math.floor(Math.random() * candidates.length)];
     }, [flatTrackList]);
 
@@ -261,17 +238,13 @@ function Music() {
         if (!activeTrack || flatTrackList.length === 0) return;
 
         if (isShuffle) {
-            // Giới hạn lịch sử shuffle tối đa 50 phần tử để tránh tràn bộ nhớ mảng
-            if (shuffleHistoryRef.current.length > 50) {
-                shuffleHistoryRef.current.shift();
-            }
             shuffleHistoryRef.current.push(activeTrack._id);
             const nextTrack = getRandomTrack(activeTrack._id);
             if (nextTrack) setCurrentTrack(nextTrack);
             return;
         }
 
-        const idx = flatTrackList.findIndex(t => t._id === activeTrack._id);
+        const idx = flatTrackList.findIndex(t => t?._id === activeTrack._id);
         if (idx === -1) return;
 
         if (idx < flatTrackList.length - 1) {
@@ -282,7 +255,7 @@ function Music() {
     }, [activeTrack, flatTrackList, isShuffle, repeatMode, getRandomTrack]);
 
     const handleTrackEnd = useCallback(() => {
-        const idx = flatTrackList.findIndex(track => track._id === currentTrack?._id);
+        const idx = flatTrackList.findIndex(track => track?._id === currentTrack?._id);
         const isLastTrack = idx === -1 || idx === flatTrackList.length - 1;
 
         if (!isShuffle && isLastTrack && repeatMode !== 'all') {
@@ -299,14 +272,14 @@ function Music() {
 
         if (isShuffle && shuffleHistoryRef.current.length > 0) {
             const prevId = shuffleHistoryRef.current.pop();
-            const prevTrack = flatTrackList.find(t => t._id === prevId);
+            const prevTrack = flatTrackList.find(t => t?._id === prevId);
             if (prevTrack) {
                 setCurrentTrack(prevTrack);
                 return;
             }
         }
 
-        const idx = flatTrackList.findIndex(t => t._id === activeTrack._id);
+        const idx = flatTrackList.findIndex(t => t?._id === activeTrack._id);
         if (idx > 0) {
             setCurrentTrack(flatTrackList[idx - 1]);
         } else if (repeatMode === 'all' && flatTrackList.length > 0) {
@@ -321,6 +294,65 @@ function Music() {
             return 'off';
         });
     };
+
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !activeTrack) return;
+
+        const artSrc = new URL(getSafeThumbnail(activeTrack.thumbnail), window.location.href).href;
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: activeTrack.title || 'Không có tiêu đề',
+            artist: activeTrack.artist || 'Không rõ nghệ sĩ',
+            album: 'My Playlist',
+            artwork: [{ src: artSrc, sizes: '480x360' }]
+        });
+
+        try {
+            navigator.mediaSession.setActionHandler('play', handlePlayPause);
+            navigator.mediaSession.setActionHandler('pause', handlePlayPause);
+            navigator.mediaSession.setActionHandler('previoustrack', handlePrevTrack);
+            navigator.mediaSession.setActionHandler('nexttrack', handleNextTrack);
+
+            navigator.mediaSession.setActionHandler('seekto', (details) => {
+                if (details.seekTime !== undefined && audioRef.current) {
+                    audioRef.current.currentTime = details.seekTime;
+                    setCurrentTime(details.seekTime);
+                }
+            });
+        } catch (error) {
+            console.warn("Trình duyệt không hỗ trợ một số Action của Media Session", error);
+        }
+
+        return () => {
+            const actions = ['play', 'pause', 'previoustrack', 'nexttrack', 'seekto'];
+            actions.forEach(action => {
+                try {
+                    navigator.mediaSession.setActionHandler(action, null);
+                } catch (e) { }
+            });
+        };
+    }, [activeTrack, handlePlayPause, handlePrevTrack, handleNextTrack]);
+
+    useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }, [isPlaying]);
+
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || !audioRef.current) return;
+        if (typeof navigator.mediaSession.setPositionState === 'function') {
+            try {
+                if (!Number.isFinite(duration) || duration <= 0) return;
+                navigator.mediaSession.setPositionState({
+                    duration,
+                    playbackRate: audioRef.current.playbackRate || 1,
+                    position: Math.min(currentTime || 0, duration)
+                });
+            } catch (err) {
+                console.warn("Không thể cập nhật PositionState:", err);
+            }
+        }
+    }, [currentTime, duration]);
 
     return (
         <PageContainer maxWidth={2000} disableGutters>
@@ -358,40 +390,13 @@ function Music() {
                     position: 'relative',
                     height: '100dvh',
                     width: '100vw',
-                    backgroundColor: '#0a0a0c',
+                    backgroundColor: '#000000',
                     color: '#ffffff',
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
                     p: { xs: 2, md: 4 },
                     boxSizing: 'border-box',
-
-                    '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        backgroundImage: `url("${currentPlaylistCover}")`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        filter: 'grayscale(80%) contrast(140%) brightness(80%) blur(7px)',
-                        zIndex: 0,
-                        willChange: 'background-image',
-                        transform: 'translateZ(0)',
-                    },
-                    '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        background: 'linear-gradient(180deg, rgba(5,5,5,0.45) 0%, rgba(5,5,5,0.7) 55%, rgba(0,0,0,0.96) 100%)',
-                        zIndex: 1,
-                        pointerEvents: 'none',
-                    }
                 }}
             >
                 <Box sx={{
@@ -420,26 +425,32 @@ function Music() {
                     />
 
                     {activeTrack && (
-                        <MusicPlayerBar
-                            activeWaveformData={activeWaveformData}
-                            progressPercent={progressPercent}
-                            duration={duration}
-                            currentTime={currentTime}
-                            handleSliderChange={handleSliderChange}
-                            formatTime={formatTime}
-                            isShuffle={isShuffle}
-                            setIsShuffle={setIsShuffle}
-                            handlePrevTrack={handlePrevTrack}
-                            handlePlayPause={handlePlayPause}
-                            isPlaying={isPlaying}
-                            handleNextTrack={handleNextTrack}
-                            repeatMode={repeatMode}
-                            cycleRepeatMode={cycleRepeatMode}
-                            toggleMute={toggleMute}
-                            isMuted={isMuted}
-                            volume={volume}
-                            handleVolumeChange={handleVolumeChange}
-                        />
+                        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2 }}>
+                            {/* Thanh ngang 1px thay thế cho sóng nhạc */}
+                            <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.2)', mb: 1, position: 'relative' }}>
+                                <Box sx={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#ffffff' }} />
+                            </Box>
+
+                            <MusicPlayerBar
+                                progressPercent={progressPercent}
+                                duration={duration}
+                                currentTime={currentTime}
+                                handleSliderChange={handleSliderChange}
+                                formatTime={formatTime}
+                                isShuffle={isShuffle}
+                                setIsShuffle={setIsShuffle}
+                                handlePrevTrack={handlePrevTrack}
+                                handlePlayPause={handlePlayPause}
+                                isPlaying={isPlaying}
+                                handleNextTrack={handleNextTrack}
+                                repeatMode={repeatMode}
+                                cycleRepeatMode={cycleRepeatMode}
+                                toggleMute={toggleMute}
+                                isMuted={isMuted}
+                                volume={volume}
+                                handleVolumeChange={handleVolumeChange}
+                            />
+                        </Box>
                     )}
                 </Box>
             </Box>
