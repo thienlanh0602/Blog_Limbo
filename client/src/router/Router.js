@@ -91,7 +91,7 @@ function Routers() {
           <Route path='resume' element={< Resume />} />
           <Route path='image' element={< Image />} />
           <Route path='music' element={<Music />} />
-          <Route path='kaban' element={<Color />} />
+          <Route path='kanban' element={<Color />} />
           <Route path='fm' element={<DIY />} />
         </Route>
 

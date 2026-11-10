@@ -12,7 +12,7 @@ import {
 const navBar = [
     { label: 'RESUME', path: '/resume' },
     { label: 'MUSIC', path: '/music' },
-    { label: 'KABAN', path: '/kaban' },
+    { label: 'KANBAN', path: '/kanban' },
     { label: 'IMAGE', path: '/image' },
     { label: 'FM', path: '/fm' },
 ]

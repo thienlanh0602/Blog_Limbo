@@ -8,11 +8,14 @@ import { useAudioEQ } from '../../pages/homepage/selections/useAudioEq';
 import { PlaylistCards } from './components/PlaylistCards';
 import { MusicPlayerBar } from './components/MusicPlayerBar';
 
-// Đọc/ghi localStorage an toàn (dữ liệu hỏng hoặc đầy bộ nhớ sẽ không làm sập trang)
+// Đọc/ghi localStorage an toàn. Nếu fallback là mảng mà dữ liệu cache không phải mảng thì dùng fallback
 const readCache = (key, fallback) => {
     try {
         const raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : fallback;
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(fallback) && !Array.isArray(parsed)) return fallback;
+        return parsed;
     } catch {
         return fallback;
     }
@@ -41,6 +44,9 @@ const generateDummyWaveform = (count = 300) => {
     });
     return smoothed.map(v => Math.max(8, Math.min(100, v + (Math.random() - 0.5) * 8)));
 };
+
+// Nhiễu hạt chỉ dùng trên desktop (feTurbulence rất nặng với điện thoại)
+const NOISE_BG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`;
 
 function Music() {
     const [playlists, setPlaylists] = useState(() => readCache('offline_playlists', []));
@@ -75,7 +81,7 @@ function Music() {
     }, [baseWaveformData, waveformCount]);
 
     const flatTrackList = useMemo(
-        () => playlists.flatMap(pl => pl.tracks || []),
+        () => playlists.flatMap(pl => pl?.tracks || []),
         [playlists]
     );
 
@@ -86,9 +92,9 @@ function Music() {
     const currentPlaylistCover = useMemo(() => {
         if (!activeTrack || playlists.length === 0) return FALLBACK_COVER_SVG;
         const matchedPlaylist = playlists.find(pl =>
-            pl.tracks && pl.tracks.some(track => track._id === activeTrack._id)
+            pl?.tracks && pl.tracks.some(track => track._id === activeTrack._id)
         );
-        return getSafeThumbnail(matchedPlaylist?.thumbnail || playlists[0]?.thumbnail);
+        return getSafeThumbnail(matchedPlaylist?.thumbnail || playlists[0]?.thumbnail) || FALLBACK_COVER_SVG;
     }, [activeTrack, playlists]);
 
     const handleCoverLoad = useCallback((id) => {
@@ -158,9 +164,7 @@ function Music() {
                 if (!cancelled) setIsPlaying(true);
             } catch (err) {
                 if (cancelled) return;
-                // AbortError: bị ngắt do đổi bài/load mới -> bình thường, bỏ qua
                 if (err.name === "AbortError") return;
-                // NotAllowedError: bị chặn autoplay -> chờ người dùng bấm Play
                 if (err.name === "NotAllowedError") {
                     setIsPlaying(false);
                     return;
@@ -184,6 +188,8 @@ function Music() {
         const trackToPlay = currentTrack || activeTrack;
         if (!currentTrack && trackToPlay) {
             setCurrentTrack(trackToPlay);
+            // Gọi play ngay trong cử chỉ người dùng để Safari/iOS không chặn
+            audioRef.current?.play().then(() => setIsPlaying(true)).catch(() => { });
             return;
         }
         if (!audioRef.current) return;
@@ -203,19 +209,23 @@ function Music() {
             audioRef.current.pause();
             setIsPlaying(false);
         }
-    }, [currentTrack, activeTrack]);
+    }, [currentTrack, activeTrack, resume, setPreset]);
 
     const handleSelectTrack = useCallback((track) => {
-    resume();
-    setPreset("spotifyBass");
-    setCurrentTrack(track);
-}, [resume, setPreset]);
+        resume();
+        setPreset("spotifyBass");
+        setCurrentTrack(track);
+    }, [resume, setPreset]);
 
     useEffect(() => {
         const handleKeyDown = (event) => {
             if (event.code === 'Space') {
                 const target = event.target;
-                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('role') === 'slider') return;
+                const tag = target?.tagName;
+                if (
+                    tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A' ||
+                    target?.getAttribute?.('role') === 'slider'
+                ) return;
                 event.preventDefault();
                 handlePlayPause();
             }
@@ -254,7 +264,7 @@ function Music() {
     };
 
     const formatTime = (secs) => {
-        if (isNaN(secs)) return "00:00";
+        if (!Number.isFinite(secs)) return "00:00";
         const m = Math.floor(secs / 60);
         const s = Math.floor(secs % 60);
         return `${m}:${s < 10 ? '0' : ''}${s}`;
@@ -271,7 +281,6 @@ function Music() {
         if (!activeTrack || flatTrackList.length === 0) return;
 
         if (isShuffle) {
-            // Chỉ lưu lịch sử khi đang shuffle để không phình bộ nhớ vô ích
             shuffleHistoryRef.current.push(activeTrack._id);
             const nextTrack = getRandomTrack(activeTrack._id);
             if (nextTrack) setCurrentTrack(nextTrack);
@@ -329,20 +338,25 @@ function Music() {
         });
     };
 
+    // Media Session
     useEffect(() => {
         if (!('mediaSession' in navigator) || !activeTrack) return;
 
-        // Media Session cần URL tuyệt đối; ảnh đi qua backend nên không còn 404 từ ytimg
-        const artSrc = new URL(getSafeThumbnail(activeTrack.thumbnail), window.location.href).href;
-
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: activeTrack.title || 'Không có tiêu đề',
-            artist: activeTrack.artist || 'Không rõ nghệ sĩ',
-            album: 'My Playlist',
-            artwork: [{ src: artSrc, sizes: '480x360' }]
-        });
+        let artSrc = '';
+        try {
+            artSrc = new URL(getSafeThumbnail(activeTrack.thumbnail) || '', window.location.href).href;
+        } catch {
+            artSrc = '';
+        }
 
         try {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: activeTrack.title || 'Không có tiêu đề',
+                artist: activeTrack.artist || 'Không rõ nghệ sĩ',
+                album: 'My Playlist',
+                artwork: artSrc ? [{ src: artSrc, sizes: '480x360' }] : []
+            });
+
             navigator.mediaSession.setActionHandler('play', handlePlayPause);
             navigator.mediaSession.setActionHandler('pause', handlePlayPause);
             navigator.mediaSession.setActionHandler('previoustrack', handlePrevTrack);
@@ -377,7 +391,6 @@ function Music() {
         if (!('mediaSession' in navigator) || !audioRef.current) return;
         if (typeof navigator.mediaSession.setPositionState === 'function') {
             try {
-                // duration có thể là NaN/Infinity khi chưa tải xong -> bỏ qua để tránh lỗi
                 if (!Number.isFinite(duration) || duration <= 0) return;
                 navigator.mediaSession.setPositionState({
                     duration,
@@ -404,28 +417,27 @@ function Music() {
                 }
             }} />
 
-            {activeTrack?.cloudinaryUrl && (
-                <audio
-                    ref={audioRef}
-                    src={activeTrack.cloudinaryUrl}
-                     crossOrigin="anonymous"
-                    playsInline
-                    preload="auto"
-                    loop={repeatMode === 'one'}
-                    onTimeUpdate={handleTimeUpdate}
-                    onLoadedMetadata={handleLoadedMetadata}
-                    onEnded={handleTrackEnd}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
-                />
-            )}
+            {/* Luôn render thẻ audio để ref ổn định và EQ không bị lỗi khi mount lại */}
+            <audio
+                ref={audioRef}
+                src={activeTrack?.cloudinaryUrl || undefined}
+                crossOrigin="anonymous"
+                playsInline
+                preload="metadata"
+                loop={repeatMode === 'one'}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onEnded={handleTrackEnd}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+            />
 
             <Box
                 ref={pageWrapperRef}
                 sx={{
                     position: 'relative',
                     height: '100dvh',
-                    width: '100vw',
+                    width: '100%',
                     backgroundColor: '#0a0a0c',
                     color: '#ffffff',
                     display: 'flex',
@@ -437,42 +449,35 @@ function Music() {
                     '&::before': {
                         content: '""',
                         position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        backgroundImage: `url("${currentPlaylistCover}")`,
+                        inset: 0,
+                        backgroundImage: `url(${JSON.stringify(currentPlaylistCover)})`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
-                        filter: 'grayscale(80%) contrast(140%) brightness(80%) blur(7px)',
+                        // Filter nặng chỉ dùng trên desktop; mobile dùng lớp phủ tối của ::after
+                        filter: { xs: 'none', md: 'grayscale(80%) contrast(140%) brightness(80%) blur(7px)' },
+                        opacity: { xs: 0.55, md: 1 },
                         zIndex: 0,
-                        willChange: 'background-image',
-                        transform: 'translateZ(0)',
                     },
                     '&::after': {
                         content: '""',
                         position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
+                        inset: 0,
                         background: 'linear-gradient(180deg, rgba(5,5,5,0.45) 0%, rgba(5,5,5,0.7) 55%, rgba(0,0,0,0.96) 100%), radial-gradient(circle at center, transparent 25%, rgba(0,0,0,0.85) 90%)',
                         zIndex: 1,
                         pointerEvents: 'none',
                     }
                 }}
             >
+                {/* Nhiễu hạt: ẩn hoàn toàn trên mobile */}
                 <Box
                     sx={{
+                        display: { xs: 'none', md: 'block' },
                         position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
+                        inset: 0,
                         opacity: 0.075,
                         pointerEvents: 'none',
                         zIndex: 2,
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                        backgroundImage: NOISE_BG,
                     }}
                 />
 
