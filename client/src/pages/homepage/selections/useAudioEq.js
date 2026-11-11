@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 
 // 6 băng tần giống bộ chỉnh âm của Spotify: 60Hz, 150Hz, 400Hz, 1kHz, 2.4kHz, 15kHz
 const BANDS = [
@@ -31,11 +31,41 @@ export function useAudioEQ(audioRef) {
   const filtersRef = useRef([]);
   const gainRef = useRef(null);
 
+  // Đường ra: MediaStreamDestination -> thẻ <audio> ẩn (iOS cho phát nền / khóa màn hình ổn định hơn)
+  const streamDestRef = useRef(null);
+  const outAudioRef = useRef(null);
+  const outputModeRef = useRef("speaker"); // "stream" | "speaker"
+
+  // Nối âm thanh ra loa trực tiếp qua AudioContext (đường dự phòng)
+  const routeToSpeaker = useCallback(() => {
+    const ctx = ctxRef.current;
+    const gain = gainRef.current;
+    if (!ctx || !gain || outputModeRef.current === "speaker") return;
+    try {
+      if (streamDestRef.current) gain.disconnect(streamDestRef.current);
+    } catch { /* bỏ qua */ }
+    gain.connect(ctx.destination);
+    outputModeRef.current = "speaker";
+  }, []);
+
   const init = useCallback(() => {
     if (ctxRef.current || !audioRef.current) return;
 
+    // Báo iOS đây là âm thanh phát nền (iOS 16.4+)
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+    } catch { /* không hỗ trợ thì bỏ qua */ }
+
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     const ctx = new AudioCtx();
+
+    // iOS dừng context khi thoát app/khóa máy -> tự bật lại
+    ctx.onstatechange = () => {
+      if (ctx.state !== "running" && ctx.state !== "closed") {
+        ctx.resume().catch(() => { });
+      }
+    };
+
     const source = ctx.createMediaElementSource(audioRef.current);
 
     // Chừa headroom trước EQ để bass tăng mạnh không bị vỡ tiếng
@@ -113,19 +143,79 @@ export function useAudioEQ(audioRef) {
     node.connect(limiter);
 
     limiter.connect(gain);
-    gain.connect(ctx.destination);
 
     ctxRef.current = ctx;
     filtersRef.current = filters;
     gainRef.current = gain;
+
+    // ---- ĐẦU RA ----
+    // Ưu tiên: gain -> MediaStreamDestination -> <audio> ẩn (phát nền khi khóa màn hình)
+    // Dự phòng: gain -> ctx.destination (như bản cũ) nếu trình duyệt không hỗ trợ
+    const canUseStream =
+      typeof ctx.createMediaStreamDestination === "function" &&
+      typeof HTMLMediaElement !== "undefined" &&
+      "srcObject" in HTMLMediaElement.prototype;
+
+    if (canUseStream) {
+      try {
+        const streamDest = ctx.createMediaStreamDestination();
+        gain.connect(streamDest);
+
+        const out = document.createElement("audio");
+        out.setAttribute("playsinline", "");
+        out.setAttribute("data-eq-output", "true");
+        out.style.display = "none";
+        out.srcObject = streamDest.stream;
+        document.body.appendChild(out);
+
+        streamDestRef.current = streamDest;
+        outAudioRef.current = out;
+        outputModeRef.current = "stream";
+      } catch (err) {
+        console.warn("Không tạo được đường ra MediaStream, dùng loa trực tiếp:", err);
+        gain.connect(ctx.destination);
+        outputModeRef.current = "speaker";
+      }
+    } else {
+      gain.connect(ctx.destination);
+      outputModeRef.current = "speaker";
+    }
   }, [audioRef]);
+
+  // Phát thẻ <audio> đầu ra; nếu bị chặn thì tự chuyển về loa trực tiếp để không bị câm
+  const playOutput = useCallback(() => {
+    const out = outAudioRef.current;
+    if (!out || outputModeRef.current !== "stream") return;
+    if (!out.paused) return;
+    const p = out.play();
+    if (p && typeof p.catch === "function") {
+      p.catch((err) => {
+        if (err && err.name === "AbortError") return;
+        console.warn("Không phát được thẻ audio đầu ra, chuyển về loa trực tiếp:", err);
+        routeToSpeaker();
+      });
+    }
+  }, [routeToSpeaker]);
 
   // PHẢI gọi trong sự kiện bấm của người dùng (iOS Safari bắt buộc)
   const resume = useCallback(async () => {
     init();
     const ctx = ctxRef.current;
-    if (ctx && ctx.state === "suspended") await ctx.resume();
-  }, [init]);
+    if (ctx && ctx.state !== "running" && ctx.state !== "closed") {
+      try { await ctx.resume(); } catch { /* bỏ qua */ }
+    }
+    playOutput();
+  }, [init, playOutput]);
+
+  // Bật lại context/đường ra ĐÃ CÓ (không tạo mới) - an toàn để gọi ngoài thao tác người dùng
+  const wake = useCallback(() => {
+    const ctx = ctxRef.current;
+    if (!ctx) return;
+    if (ctx.state !== "running" && ctx.state !== "closed") {
+      ctx.resume().catch(() => { });
+    }
+    playOutput();
+  }, [playOutput]);
 
   const setPreset = useCallback((name) => {
     const ctx = ctxRef.current;
@@ -140,5 +230,27 @@ export function useAudioEQ(audioRef) {
     if (gainRef.current) gainRef.current.gain.value = v; // 0 -> 1
   }, []);
 
-  return { resume, setPreset, setVolume };
+  // Dọn dẹp khi rời trang: đóng context và gỡ thẻ audio ẩn
+  useEffect(() => {
+    return () => {
+      try {
+        const out = outAudioRef.current;
+        if (out) {
+          out.pause();
+          out.srcObject = null;
+          out.remove();
+        }
+        const ctx = ctxRef.current;
+        if (ctx && ctx.state !== "closed") ctx.close().catch(() => { });
+      } catch { /* bỏ qua */ }
+      outAudioRef.current = null;
+      streamDestRef.current = null;
+      ctxRef.current = null;
+      filtersRef.current = [];
+      gainRef.current = null;
+      outputModeRef.current = "speaker";
+    };
+  }, []);
+
+  return { resume, setPreset, setVolume, wake };
 }

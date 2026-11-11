@@ -26,9 +26,25 @@ const writeCache = (key, value) => {
     }
 };
 
+const generateDummyWaveform = (count = 300) => {
+    const raw = [];
+    let value = 45;
+    for (let i = 0; i < count; i++) {
+        const step = (Math.random() - 0.5) * 16;
+        value += step;
+        value = Math.max(8, Math.min(95, value));
+        raw.push(value);
+    }
+    const smoothed = raw.map((_, i) => {
+        const window = raw.slice(Math.max(0, i - 2), Math.min(count, i + 3));
+        return window.reduce((a, b) => a + b, 0) / window.length;
+    });
+    return smoothed.map(v => Math.max(8, Math.min(100, v + (Math.random() - 0.5) * 8)));
+};
+
 function Music() {
-    const [playlists, setPlaylists] = useState(() => readCache('offline_playlists', []) || []);
-    const [loading, setLoading] = useState(() => (readCache('offline_playlists', []) || []).length === 0);
+    const [playlists, setPlaylists] = useState(() => readCache('offline_playlists', []));
+    const [loading, setLoading] = useState(() => readCache('offline_playlists', []).length === 0);
 
     const [currentTrack, setCurrentTrack] = useState(() => readCache('offline_last_track', null));
     const [isPlaying, setIsPlaying] = useState(false);
@@ -45,19 +61,35 @@ function Music() {
     const audioRef = useRef(null);
     const pageWrapperRef = useRef(null);
     const shuffleHistoryRef = useRef([]);
-    const { resume, setPreset } = useAudioEQ(audioRef);
+    const { resume, setPreset, wake, setVolume: setEqVolume } = useAudioEQ(audioRef);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
+    const waveformCount = isMobile ? 85 : (isTablet ? 180 : 300);
+    const baseWaveformData = useMemo(() => generateDummyWaveform(300), []);
+
+    const activeWaveformData = useMemo(() => {
+        return baseWaveformData.slice(1, waveformCount);
+    }, [baseWaveformData, waveformCount]);
+
     const flatTrackList = useMemo(
-        () => (Array.isArray(playlists) ? playlists.flatMap(pl => pl?.tracks || []) : []),
+        () => playlists.flatMap(pl => pl.tracks || []),
         [playlists]
     );
 
     const activeTrack = currentTrack || flatTrackList[0] || null;
     const progressPercent = duration ? (currentTime / duration) * 100 : 0;
+
+    // Ảnh nền: luôn đi qua getSafeThumbnail để không gọi thẳng link YouTube bị 404
+    const currentPlaylistCover = useMemo(() => {
+        if (!activeTrack || playlists.length === 0) return FALLBACK_COVER_SVG;
+        const matchedPlaylist = playlists.find(pl =>
+            pl.tracks && pl.tracks.some(track => track._id === activeTrack._id)
+        );
+        return getSafeThumbnail(matchedPlaylist?.thumbnail || playlists[0]?.thumbnail);
+    }, [activeTrack, playlists]);
 
     const handleCoverLoad = useCallback((id) => {
         setLoadedCovers(prev => (prev[id] ? prev : { ...prev, [id]: true }));
@@ -67,31 +99,7 @@ function Music() {
         setLoadedTrackThumbs(prev => (prev[id] ? prev : { ...prev, [id]: true }));
     }, []);
 
-    // Tự động khôi phục AudioEQ và ép phát lại khi người dùng quay lại ứng dụng / mở sáng màn hình
     useEffect(() => {
-        const handleVisibilityChange = async () => {
-            if (!document.hidden) {
-                if (typeof resume === 'function') {
-                    try {
-                        await resume();
-                    } catch (e) {
-                        console.warn("Không thể resume AudioContext:", e);
-                    }
-                }
-                if (audioRef.current && isPlaying) {
-                    audioRef.current.play().catch(() => {});
-                }
-            }
-        };
-
-        document.addEventListener("visibilitychange", handleVisibilityChange);
-        return () => {
-            document.removeEventListener("visibilitychange", handleVisibilityChange);
-        };
-    }, [resume, isPlaying]);
-
-    useEffect(() => {
-        let isMounted = true;
         const fetchAllPlaylists = async () => {
             try {
                 const res = await getPlaylists();
@@ -104,7 +112,7 @@ function Music() {
 
                 const fullPlaylists = await Promise.all(
                     list.map(async (pl) => {
-                        if (pl?.tracks && pl.tracks.length > 0 && typeof pl.tracks[0] === 'object') {
+                        if (pl.tracks && pl.tracks.length > 0 && typeof pl.tracks[0] === 'object') {
                             return pl;
                         }
                         try {
@@ -116,18 +124,15 @@ function Music() {
                     })
                 );
 
-                if (isMounted) {
-                    setPlaylists(fullPlaylists);
-                    writeCache('offline_playlists', fullPlaylists);
-                }
+                setPlaylists(fullPlaylists);
+                writeCache('offline_playlists', fullPlaylists);
             } catch (error) {
                 console.warn("Đang offline hoặc lỗi mạng. Sử dụng dữ liệu đã lưu cục bộ.", error);
             } finally {
-                if (isMounted) setLoading(false);
+                setLoading(false);
             }
         };
         fetchAllPlaylists();
-        return () => { isMounted = false; };
     }, []);
 
     useEffect(() => {
@@ -153,7 +158,9 @@ function Music() {
                 if (!cancelled) setIsPlaying(true);
             } catch (err) {
                 if (cancelled) return;
+                // AbortError: bị ngắt do đổi bài/load mới -> bình thường, bỏ qua
                 if (err.name === "AbortError") return;
+                // NotAllowedError: bị chặn autoplay -> chờ người dùng bấm Play
                 if (err.name === "NotAllowedError") {
                     setIsPlaying(false);
                     return;
@@ -227,11 +234,11 @@ function Music() {
         }
     };
 
-    // Kéo thanh âm lượng sẽ tự bỏ tắt tiếng (đồng bộ cả audio.muted)
     const handleVolumeChange = (e, newValue) => {
         setVolume(newValue);
         const muted = newValue === 0;
         setIsMuted(muted);
+        setEqVolume(muted ? 0 : newValue / 100);
         if (audioRef.current) {
             audioRef.current.volume = newValue / 100;
             audioRef.current.muted = muted;
@@ -242,6 +249,7 @@ function Music() {
         if (audioRef.current) {
             const nextMuted = !isMuted;
             audioRef.current.muted = nextMuted;
+            setEqVolume(nextMuted ? 0 : volume / 100);
             setIsMuted(nextMuted);
         }
     };
@@ -256,7 +264,7 @@ function Music() {
     const getRandomTrack = useCallback((excludeId) => {
         if (flatTrackList.length === 0) return null;
         if (flatTrackList.length === 1) return flatTrackList[0];
-        const candidates = flatTrackList.filter(t => t?._id !== excludeId);
+        const candidates = flatTrackList.filter(t => t._id !== excludeId);
         return candidates[Math.floor(Math.random() * candidates.length)];
     }, [flatTrackList]);
 
@@ -271,7 +279,7 @@ function Music() {
             return;
         }
 
-        const idx = flatTrackList.findIndex(t => t?._id === activeTrack._id);
+        const idx = flatTrackList.findIndex(t => t._id === activeTrack._id);
         if (idx === -1) return;
 
         if (idx < flatTrackList.length - 1) {
@@ -282,7 +290,7 @@ function Music() {
     }, [activeTrack, flatTrackList, isShuffle, repeatMode, getRandomTrack]);
 
     const handleTrackEnd = useCallback(() => {
-        const idx = flatTrackList.findIndex(track => track?._id === currentTrack?._id);
+        const idx = flatTrackList.findIndex(track => track._id === currentTrack?._id);
         const isLastTrack = idx === -1 || idx === flatTrackList.length - 1;
 
         if (!isShuffle && isLastTrack && repeatMode !== 'all') {
@@ -299,14 +307,14 @@ function Music() {
 
         if (isShuffle && shuffleHistoryRef.current.length > 0) {
             const prevId = shuffleHistoryRef.current.pop();
-            const prevTrack = flatTrackList.find(t => t?._id === prevId);
+            const prevTrack = flatTrackList.find(t => t._id === prevId);
             if (prevTrack) {
                 setCurrentTrack(prevTrack);
                 return;
             }
         }
 
-        const idx = flatTrackList.findIndex(t => t?._id === activeTrack._id);
+        const idx = flatTrackList.findIndex(t => t._id === activeTrack._id);
         if (idx > 0) {
             setCurrentTrack(flatTrackList[idx - 1]);
         } else if (repeatMode === 'all' && flatTrackList.length > 0) {
@@ -382,6 +390,13 @@ function Music() {
             }
         }
     }, [currentTime, duration]);
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') wake();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [wake]);
 
     return (
         <PageContainer maxWidth={2000} disableGutters>
@@ -400,7 +415,7 @@ function Music() {
             {activeTrack?.cloudinaryUrl && (
                 <audio
                     ref={audioRef}
-                    src={activeTrack.cloudinaryUrl}
+                    src={activeTrack?.cloudinaryUrl || undefined}
                     crossOrigin="anonymous"
                     playsInline
                     preload="auto"
@@ -408,7 +423,7 @@ function Music() {
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
                     onEnded={handleTrackEnd}
-                    onPlay={() => setIsPlaying(true)}
+                    onPlay={() => { setIsPlaying(true); wake(); }}
                     onPause={() => setIsPlaying(false)}
                 />
             )}
@@ -426,6 +441,8 @@ function Music() {
                     overflow: 'hidden',
                     p: { xs: 2, md: 4 },
                     boxSizing: 'border-box',
+
+
                 }}
             >
                 <Box
@@ -438,6 +455,7 @@ function Music() {
                         opacity: 0.075,
                         pointerEvents: 'none',
                         zIndex: 2,
+                        // backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
                     }}
                 />
 
@@ -467,6 +485,7 @@ function Music() {
                     />
 
                     {activeTrack && (
+
                         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2 }}>
                             {/* Thanh ngang 1px thay thế cho sóng nhạc */}
                             <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.2)', mb: 1, position: 'relative' }}>
