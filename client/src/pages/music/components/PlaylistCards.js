@@ -151,7 +151,7 @@ export const PlaylistCards = ({
                             display: 'flex',
                             flexDirection: 'column',
                             backgroundColor: colors.vibrant,
-                            border: "1px solid black",
+                            // border: "1px solid black",
                         }}
                     >
                         <Box sx={{ p: { xs: 2.5, sm: 3.5 } }}>
@@ -276,12 +276,7 @@ export const PlaylistCards = ({
                                                 cursor: 'pointer',
                                                 borderRadius: '8px',
                                                 mb: 0.5,
-                                                backgroundColor: isCurrent
-                                                    ? (isLightBg ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.12)')
-                                                    : 'transparent',
-                                                '&:hover': {
-                                                    backgroundColor: isLightBg ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.05)'
-                                                },
+                                               
                                             }}
                                         >
                                             <Typography sx={{

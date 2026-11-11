@@ -5,6 +5,10 @@ import {
     VolumeUpIcon, VolumeOffIcon, ShuffleIcon, RepeatIcon, RepeatOneIcon
 } from './MusicIcons';
 
+// Màu icon mặc định (đổi 1 chỗ này là đổi tất cả icon)
+const ICON_COLOR = '#000000';
+const ACTIVE_COLOR = '#4efcd3';
+
 export const MusicPlayerBar = ({
     progressPercent,
     duration,
@@ -28,6 +32,10 @@ export const MusicPlayerBar = ({
         <Box sx={{ pt: 2.5, pb: { xs: 3, md: 1.5 }, mt: 'auto', flexShrink: 0, width: '100%' }}>
             {/* Thanh trượt thời gian bài hát */}
             <Box sx={{ position: 'relative', width: '100%', height: '28px', display: 'flex', alignItems: 'center', mb: { xs: 4, md: 4 } }}>
+                <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(109, 106, 106, 0.2)', mb: 1, position: 'relative' }}>
+                    <Box sx={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#1b1a1a' }} />
+                </Box>
+
                 <Slider
                     size="small"
                     min={0}
@@ -35,22 +43,27 @@ export const MusicPlayerBar = ({
                     value={currentTime}
                     onChange={handleSliderChange}
                     sx={{
-                        position: 'absolute', width: '100%', height: { xs: 2, md: 30 }, padding: 0,
+                        position: 'absolute',
+                        width: '100%',
+                        height: '100%',          // giữ vùng bấm cao để dễ chạm
+                        padding: 0,
+                        color: 'transparent',
+                        cursor: 'pointer',
                         '& .MuiSlider-track': { display: 'none' },
                         '& .MuiSlider-rail': { display: 'none' },
                         '& .MuiSlider-thumb': {
+                            opacity: 0,
                             width: '2px',
                             height: '100%',
-                            borderRadius: 0,
-                            backgroundColor: '#4efcd3',
-                            boxShadow: '0px 0px 8px rgba(255,255,255,0.5)',
-                            opacity: 1,
+                            boxShadow: 'none',
+                            backgroundColor: 'transparent',
                             transition: 'none',
+                            '&::before, &::after': { display: 'none' },
                             '&:hover, &.Mui-focusVisible, &.Mui-active': {
-                                boxShadow: '0px 0px 14px #4efcd3',
-                                backgroundColor: '#4efcd3'
-                            }
-                        }
+                                boxShadow: 'none',
+                                backgroundColor: 'transparent',
+                            },
+                        },
                     }}
                 />
             </Box>
@@ -60,8 +73,7 @@ export const MusicPlayerBar = ({
                     <Typography
                         component="div"
                         sx={{
-                            fontVariantNumeric: 'tabular-nums',
-                            color: '#ffffff',
+                            color: '#000000',
                             fontSize: '0.8rem',
                             display: 'flex',
                             alignItems: 'center',
@@ -73,7 +85,7 @@ export const MusicPlayerBar = ({
                                 {char}
                             </span>
                         ))}
-                        <span style={{ margin: '0 6px', color: '#ffffff' }}>/</span>
+                        <span style={{ margin: '0 6px', color: '#000000' }}>/</span>
                         {formatTime(duration).split('').map((char, index) => (
                             <span key={`duration-${index}`} style={{ display: 'inline-block', width: char === ':' ? '6px' : '7.5px', textAlign: 'center' }}>
                                 {char}
@@ -88,8 +100,8 @@ export const MusicPlayerBar = ({
                             onClick={() => setIsShuffle(s => !s)}
                             disableRipple
                             sx={{
-                                color: isShuffle ? '#4efcd3' : '#ffffff',
-                                '&:hover': { color: '#4efcd3', transform: 'scale(1.15)' },
+                                color: isShuffle ? ACTIVE_COLOR : ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR, transform: 'scale(1.15)' },
                                 '& svg': { fill: 'currentColor' }
                             }}
                         >
@@ -98,8 +110,8 @@ export const MusicPlayerBar = ({
 
                         <IconButton onClick={handlePrevTrack} disableRipple
                             sx={{
-                                color: '#ffffff',
-                                '&:hover': { color: '#4efcd3', transform: 'scale(1.15)' },
+                                color: ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR, transform: 'scale(1.15)' },
                                 '& svg': { fill: 'currentColor' }
                             }}>
                             <SkipPreviousIcon />
@@ -107,8 +119,8 @@ export const MusicPlayerBar = ({
 
                         <IconButton onClick={handlePlayPause} disableRipple
                             sx={{
-                                color: '#ffffff',
-                                '&:hover': { color: '#4efcd3', transform: 'scale(1.15)' },
+                                color: ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR, transform: 'scale(1.15)' },
                                 '& svg': { fill: 'currentColor' }
                             }}>
                             {isPlaying ? <PauseIcon /> : <PlayIcon />}
@@ -116,8 +128,8 @@ export const MusicPlayerBar = ({
 
                         <IconButton onClick={handleNextTrack} disableRipple
                             sx={{
-                                color: '#ffffff',
-                                '&:hover': { color: '#4efcd3', transform: 'scale(1.15)' },
+                                color: ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR, transform: 'scale(1.15)' },
                                 '& svg': { fill: 'currentColor' }
                             }}>
                             <SkipNextIcon />
@@ -127,8 +139,8 @@ export const MusicPlayerBar = ({
                             onClick={cycleRepeatMode}
                             disableRipple
                             sx={{
-                                color: repeatMode !== 'off' ? '#4efcd3' : '#ffffff',
-                                '&:hover': { color: '#4efcd3', transform: 'scale(1.15)' },
+                                color: repeatMode !== 'off' ? ACTIVE_COLOR : ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR, transform: 'scale(1.15)' },
                                 '& svg': { fill: 'currentColor' }
                             }}
                         >
@@ -144,36 +156,57 @@ export const MusicPlayerBar = ({
                             size="small"
                             disableRipple
                             sx={{
-                                color: '#ffffff',
+                                color: ICON_COLOR,
                                 transition: 'transform 0.2s ease',
-                                '&:hover': { color: '#4efcd3', transform: 'scale(1.15)' },
                                 '& svg': { fill: 'currentColor', stroke: 'currentColor' }
                             }}
                         >
                             {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
                         </IconButton>
-                        <Slider
-                            size="small"
-                            value={isMuted ? 0 : volume}
-                            onChange={handleVolumeChange}
-                            min={0}
-                            max={100}
-                            sx={{
-                                width: { xs: 70, sm: 90 },
-                                color: '#ffffff',
-                                height: 2,
-                                '& .MuiSlider-track': { backgroundColor: '#ffffff' },
-                                '& .MuiSlider-rail': { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
-                                '& .MuiSlider-thumb': {
-                                    width: '2px',
-                                    height: '12px',
-                                    borderRadius: 0,
-                                    backgroundColor: '#ffffff',
-                                    transition: 'none',
-                                    '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none', width: '4px', backgroundColor: '#4efcd3' }
-                                }
-                            }}
-                        />
+                        <Box sx={{
+                            position: 'relative',
+                            width: { xs: 70, sm: 90 },
+                            height: '28px',
+                            display: 'flex',
+                            alignItems: 'center',
+                        }}>
+                            {/* Phần nhìn thấy: giống hệt thanh thời gian */}
+                            <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(109, 106, 106, 0.2)', position: 'relative' }}>
+                                <Box sx={{ width: `${isMuted ? 0 : volume}%`, height: '100%', backgroundColor: '#1b1a1a' }} />
+                            </Box>
+
+                            {/* Phần bấm: vô hình */}
+                            <Slider
+                                size="small"
+                                value={isMuted ? 0 : volume}
+                                onChange={handleVolumeChange}
+                                min={0}
+                                max={100}
+                                sx={{
+                                    position: 'absolute',
+                                    width: '100%',
+                                    height: '100%',
+                                    padding: 0,
+                                    color: 'transparent',
+                                    cursor: 'pointer',
+                                    '& .MuiSlider-track': { display: 'none' },
+                                    '& .MuiSlider-rail': { display: 'none' },
+                                    '& .MuiSlider-thumb': {
+                                        opacity: 0,
+                                        width: '2px',
+                                        height: '100%',
+                                        boxShadow: 'none',
+                                        backgroundColor: 'transparent',
+                                        transition: 'none',
+                                        '&::before, &::after': { display: 'none' },
+                                        '&:hover, &.Mui-focusVisible, &.Mui-active': {
+                                            boxShadow: 'none',
+                                            backgroundColor: 'transparent',
+                                        },
+                                    },
+                                }}
+                            />
+                        </Box>
                     </Stack>
                 </Grid>
 
@@ -183,8 +216,8 @@ export const MusicPlayerBar = ({
                             onClick={() => setIsShuffle(s => !s)}
                             disableRipple
                             sx={{
-                                color: isShuffle ? '#4efcd3' : '#ffffff',
-                                '&:hover': { color: '#4efcd3' },
+                                color: isShuffle ? ACTIVE_COLOR : ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR },
                                 '& svg': { fill: 'currentColor' }
                             }}
                         >
@@ -193,8 +226,8 @@ export const MusicPlayerBar = ({
 
                         <IconButton onClick={handlePrevTrack} disableRipple
                             sx={{
-                                color: '#ffffff',
-                                '&:hover': { color: '#4efcd3' },
+                                color: ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR },
                                 '& svg': { fill: 'currentColor' }
                             }}>
                             <SkipPreviousIcon />
@@ -202,8 +235,8 @@ export const MusicPlayerBar = ({
 
                         <IconButton onClick={handlePlayPause} disableRipple
                             sx={{
-                                color: '#ffffff',
-                                '&:hover': { color: '#4efcd3' },
+                                color: ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR },
                                 '& svg': { fill: 'currentColor' }
                             }}>
                             {isPlaying ? <PauseIcon /> : <PlayIcon />}
@@ -211,8 +244,8 @@ export const MusicPlayerBar = ({
 
                         <IconButton onClick={handleNextTrack} disableRipple
                             sx={{
-                                color: '#ffffff',
-                                '&:hover': { color: '#4efcd3' },
+                                color: ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR },
                                 '& svg': { fill: 'currentColor' }
                             }}>
                             <SkipNextIcon />
@@ -222,8 +255,8 @@ export const MusicPlayerBar = ({
                             onClick={cycleRepeatMode}
                             disableRipple
                             sx={{
-                                color: repeatMode !== 'off' ? '#4efcd3' : '#ffffff',
-                                '&:hover': { color: '#4efcd3' },
+                                color: repeatMode !== 'off' ? ACTIVE_COLOR : ICON_COLOR,
+                                '&:hover': { color: ACTIVE_COLOR },
                                 '& svg': { fill: 'currentColor' }
                             }}
                         >

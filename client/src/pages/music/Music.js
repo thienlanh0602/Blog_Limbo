@@ -434,15 +434,13 @@ function Music() {
                     position: 'relative',
                     height: '100dvh',
                     width: '100vw',
-                    backgroundColor: '#0a0a0c',
+                    backgroundColor: '#ffffff',
                     color: '#ffffff',
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden',
                     p: { xs: 2, md: 4 },
                     boxSizing: 'border-box',
-
-
                 }}
             >
                 <Box
@@ -455,7 +453,6 @@ function Music() {
                         opacity: 0.075,
                         pointerEvents: 'none',
                         zIndex: 2,
-                        // backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
                     }}
                 />
 
@@ -487,11 +484,6 @@ function Music() {
                     {activeTrack && (
 
                         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2 }}>
-                            {/* Thanh ngang 1px thay thế cho sóng nhạc */}
-                            <Box sx={{ width: '100%', height: '1px', backgroundColor: 'rgba(255, 255, 255, 0.2)', mb: 1, position: 'relative' }}>
-                                <Box sx={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#ffffff' }} />
-                            </Box>
-
                             <MusicPlayerBar
                                 progressPercent={progressPercent}
                                 duration={duration}
